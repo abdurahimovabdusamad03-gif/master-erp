@@ -337,6 +337,7 @@ uz:{app_name:"Master ERP", app_tag:"ERP TIZIMI", login:"Kirish", register:"Ro'yx
   import_success:"{n} ta tovar import qilindi", import_failed:"Faylni o'qib bo'lmadi", rolls_count_short:"rulon",
   save_failed:"Saqlashda xatolik. Internetni tekshirib, birozdan so'ng qayta urinib ko'ring. Davom etsa, sahifani yangilang.", loading:"Yuklanmoqda...", session_lost:"Sessiya topilmadi, qayta kiring",
   memory_fallback_note:"Diqqat: saqlash tizimi javob bermayapti. Ilova hozircha vaqtinchalik xotirada ishlaydi — sahifani yangilasangiz ma'lumotlar yo'qolishi mumkin.",
+  save_failed_detail:"SAQLANMADI! Internet aloqasini tekshiring va qayta urining. Xato",
   payload_too_large:"Ma'lumot hajmi juda katta (rasmlar ko'p). Ba'zi tovar rasmlarini o'chiring yoki kichikroq rasm tanlang.",
   incoming:"Kirim", incoming_title:"Kirim Qilish (Postavka & Optom Kirim)", incoming_sub:"Tannarxni $ yoki so'mda kiriting",
   new_incoming:"Yangi Kirim", suppliers_count:"Postavshiklar", history:"Tarix", supplier_count_label:"Postavshiklar soni",
@@ -449,6 +450,7 @@ ru:{app_name:"Master ERP", app_tag:"ERP СИСТЕМА", login:"Войти", reg
   import_success:"Импортировано {n} товаров", import_failed:"Не удалось прочитать файл", rolls_count_short:"рул",
   save_failed:"Ошибка при сохранении, попробуйте снова", loading:"Загрузка...", session_lost:"Сессия не найдена, войдите снова",
   memory_fallback_note:"Внимание: система хранения не отвечает. Приложение временно работает в памяти — при обновлении страницы данные могут быть потеряны.",
+  save_failed_detail:"НЕ СОХРАНЕНО! Проверьте интернет-соединение и повторите. Ошибка",
   payload_too_large:"Объём данных слишком велик (много фото). Удалите часть фото товаров или выберите файл меньшего размера.",
   incoming:"Приход", incoming_title:"Приход товара (Поставка и опт)", incoming_sub:"Себестоимость в $ или сумах",
   new_incoming:"Новый приход", suppliers_count:"Поставщики", history:"История", supplier_count_label:"Кол-во поставщиков",
@@ -561,6 +563,7 @@ en:{app_name:"Master ERP", app_tag:"ERP SYSTEM", login:"Sign in", register:"Regi
   import_success:"{n} products imported", import_failed:"Could not read the file", rolls_count_short:"rolls",
   save_failed:"Save failed, please try again", loading:"Loading...", session_lost:"Session not found, please sign in again",
   memory_fallback_note:"Note: the storage system isn't responding. The app is temporarily running in memory — data may be lost if you refresh the page.",
+  save_failed_detail:"NOT SAVED! Check your internet connection and try again. Error",
   payload_too_large:"Data size is too large (too many photos). Remove some product photos or choose a smaller image.",
   incoming:"Incoming", incoming_title:"Incoming Stock (Supplier & Wholesale)", incoming_sub:"Enter cost in $ or UZS",
   new_incoming:"New Incoming", suppliers_count:"Suppliers", history:"History", supplier_count_label:"Supplier count",
@@ -642,6 +645,7 @@ async function sGet(key, shared){
     return null;
   }
 }
+let lastSupabaseError = null;
 async function sSetOnce(key, value, shared){
   if(!shared){
     try{ localStorage.setItem('lm_'+key, JSON.stringify(value)); return true; }
@@ -652,7 +656,11 @@ async function sSetOnce(key, value, shared){
     const { error } = await window.__sb.from('erp_data').upsert({ key, value }, { onConflict:'key' });
     if(error) throw error;
     return true;
-  }catch(e){ console.error('supabase set error', e); return false; }
+  }catch(e){
+    lastSupabaseError = (e && (e.message || e.details || e.hint)) || String(e);
+    console.error('supabase set error', e);
+    return false;
+  }
 }
 async function sSet(key, value, shared, attempts=4){
   for(let i=0;i<attempts;i++){
@@ -660,13 +668,11 @@ async function sSet(key, value, shared, attempts=4){
     if(ok) return true;
     if(i<attempts-1) await new Promise(r=>setTimeout(r, 350*(i+1))); // ortib boruvchi kutish (backoff)
   }
-  // Barcha urinishlar muvaffaqiyatsiz - xotiraga zaxira sifatida saqlaymiz, ilova ishlashda davom etsin
+  // Barcha urinishlar muvaffaqiyatsiz - bu haqiqiy MUAMMO, foydalanuvchini albatta ogohlantiramiz
+  // (xotiraga vaqtincha saqlaymiz, lekin bu sahifa yopilsa YO'QOLADI - shuning uchun success deb ko'rsatmaymiz)
   memoryStore[memKey(key, shared)] = value;
-  if(!usingMemoryFallback){
-    usingMemoryFallback = true;
-    toast('⚠️ ' + t('memory_fallback_note'));
-  }
-  return true;
+  toast('⚠️ ' + t('save_failed_detail') + (lastSupabaseError ? ': '+lastSupabaseError.slice(0,80) : ''));
+  return false;
 }
 async function sDel(key, shared){
   if(!shared){
