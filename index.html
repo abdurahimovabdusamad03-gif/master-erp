@@ -770,33 +770,28 @@ function genBarcode(){
   return d + check;
 }
 
-/* ============ BARCODE SCANNER (ZXing - barcha brauzerlarda, shu jumladan iPhone Safari'da ishlaydi) ============ */
-let zxingLoadPromise = null;
-function loadZXing(){
-  if(window.ZXing) return Promise.resolve(true);
-  if(zxingLoadPromise) return zxingLoadPromise;
-  zxingLoadPromise = new Promise((resolve)=>{
+/* ============ BARCODE SCANNER (html5-qrcode - keng tarqalgan, sinovdan o'tgan, barcha brauzer/qurilmalarda ishonchli ishlaydi) ============ */
+let html5QrLoadPromise = null;
+function loadHtml5Qrcode(){
+  if(window.Html5Qrcode) return Promise.resolve(true);
+  if(html5QrLoadPromise) return html5QrLoadPromise;
+  html5QrLoadPromise = new Promise((resolve)=>{
     const script = document.createElement('script');
-    script.src = 'https://unpkg.com/@zxing/library@0.20.0/umd/index.min.js';
-    script.onload = ()=> resolve(!!window.ZXing);
+    script.src = 'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js';
+    script.onload = ()=> resolve(!!window.Html5Qrcode);
     script.onerror = ()=> resolve(false);
     document.head.appendChild(script);
-    setTimeout(()=> resolve(!!window.ZXing), 6000); // 6s dan keyin ham javob bo'lmasa, to'xtatamiz
+    setTimeout(()=> resolve(!!window.Html5Qrcode), 6000);
   });
-  return zxingLoadPromise;
+  return html5QrLoadPromise;
 }
 
+let activeHtml5Qr = null;
 async function openBarcodeScanner(onDetect){
-  const hasCamApi = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
-
   openModal(`
     <h3 style="margin-bottom:10px;">📷 ${t('scanner_title')}</h3>
     <div id="scanStatus" style="font-size:12.5px; color:var(--muted); margin-bottom:12px;">⏳ ${t('loading')}</div>
-    <div id="scanVideoWrap" style="display:none; position:relative;">
-      <video id="scanVideo" autoplay playsinline muted webkit-playsinline="true" style="width:100%; border-radius:12px; background:#000; height:260px; object-fit:cover; display:block;"></video>
-      <div style="position:absolute; inset:0; border:3px solid rgba(62,155,255,0.6); border-radius:12px; pointer-events:none;"></div>
-    </div>
-    <canvas id="scanCanvas" style="display:none;"></canvas>
+    <div id="html5qr-reader" style="width:100%; border-radius:12px; overflow:hidden; background:#000; min-height:200px;"></div>
     <div style="border:2px dashed var(--accent); border-radius:10px; padding:14px; margin-top:14px; background:rgba(62,155,255,0.06);">
       <label style="color:var(--accent-dim);">⌨️ ${t('manual_entry')}</label>
       <div style="display:flex; gap:8px;">
@@ -810,13 +805,16 @@ async function openBarcodeScanner(onDetect){
   const manualInput = document.getElementById('manualBarcode2');
   setTimeout(()=>{ try{ manualInput.focus(); }catch(e){} }, 150);
 
-  let stopped=false, stream=null, rafId=null, zxingReader=null;
+  let stopped = false;
 
-  function stopScan(){
+  async function stopScan(){
     if(stopped) return;
-    stopped=true;
-    if(rafId) cancelAnimationFrame(rafId);
-    if(stream){ try{ stream.getTracks().forEach(tr=>tr.stop()); }catch(e){} }
+    stopped = true;
+    if(activeHtml5Qr){
+      try{ await activeHtml5Qr.stop(); }catch(e){}
+      try{ activeHtml5Qr.clear(); }catch(e){}
+      activeHtml5Qr = null;
+    }
     closeModal();
   }
   document.getElementById('m_stop').onclick = stopScan;
@@ -830,91 +828,46 @@ async function openBarcodeScanner(onDetect){
     if(e.key==='Enter'){ document.getElementById('m_manual_ok').click(); }
   };
 
-  if(!hasCamApi){
+  if(!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)){
     statusEl.innerHTML = `⚠️ ${t('scanner_not_supported')}`;
     statusEl.style.color = 'var(--danger)';
     return;
   }
 
-  // 1) Kamerani TO'LIQ O'ZIMIZ ochamiz va videoga bevosita ulaymiz (kutubxonaga ishonib qolmaymiz)
-  const video = document.getElementById('scanVideo');
-  try{
-    statusEl.textContent = '🎥 ' + t('scanner_hint') + '...';
-    stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ ideal:'environment' } }, audio:false });
-    if(stopped){ stream.getTracks().forEach(tr=>tr.stop()); return; }
-    document.getElementById('scanVideoWrap').style.display = 'block';
-    video.srcObject = stream;
-    try{ await video.play(); }catch(playErr){ console.error('video.play() error', playErr); }
-  }catch(camErr){
-    console.error('getUserMedia error', camErr);
-    statusEl.innerHTML = `⚠️ ${t('camera_denied')}`;
+  statusEl.textContent = '⏳ ' + t('loading');
+  const ok = await loadHtml5Qrcode();
+  if(stopped) return;
+  if(!ok || !window.Html5Qrcode){
+    statusEl.innerHTML = `⚠️ ${t('scanner_not_supported')}`;
     statusEl.style.color = 'var(--danger)';
     return;
   }
 
-  // 2) Video haqiqatan kadr chizayotganini tekshiramiz (2.5s ichida bo'lmasa - ochiq ogohlantiramiz)
-  const renderCheckTimer = setTimeout(()=>{
-    if(!stopped && (video.readyState < 2 || video.videoWidth === 0)){
-      statusEl.innerHTML = `⚠️ ${t('camera_black_screen')}`;
-      statusEl.style.color = 'var(--danger)';
-    }
-  }, 2500);
-
-  // 3) ZXing kutubxonasini kadrlarni O'QISH uchun ishlatamiz (video ustidan o'zi boshqarmaydi)
-  const zxingOk = await loadZXing();
-  if(stopped) return;
-  if(!zxingOk || !window.ZXing){
-    statusEl.textContent = '🟡 ' + t('scanner_hint');
-    return; // kamera ko'rinadi, faqat avtomatik o'qish yo'q - qo'lda kiritish ishlaydi
-  }
-
   try{
-    const hints = new Map();
-    const formats = [
-      ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.EAN_8, ZXing.BarcodeFormat.UPC_A, ZXing.BarcodeFormat.UPC_E,
-      ZXing.BarcodeFormat.CODE_128, ZXing.BarcodeFormat.CODE_39, ZXing.BarcodeFormat.QR_CODE
+    statusEl.textContent = '🎥 ' + t('scanner_hint') + '...';
+    const formatsToSupport = [
+      Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.UPC_A, Html5QrcodeSupportedFormats.UPC_E,
+      Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.CODE_39,
+      Html5QrcodeSupportedFormats.QR_CODE
     ];
-    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
-    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-    zxingReader = new ZXing.MultiFormatReader();
-    zxingReader.setHints(hints);
-    const canvas = document.getElementById('scanCanvas');
-    const ctx = canvas.getContext('2d', { willReadFrequently:true });
-    let attemptCount = 0;
-
-    const tick = ()=>{
-      if(stopped) return;
-      if(video.readyState >= 2 && video.videoWidth > 0){
-        clearTimeout(renderCheckTimer);
-        statusEl.textContent = '🟢 ' + t('scanner_hint');
-        statusEl.style.color = 'var(--success)';
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        try{
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const luminanceSource = new ZXing.RGBLuminanceSource(imageData.data, canvas.width, canvas.height);
-          const binaryBitmap = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(luminanceSource));
-          const result = zxingReader.decode(binaryBitmap);
-          if(result){
-            const val = result.getText();
-            stopScan();
-            onDetect(val);
-            return;
-          }
-        }catch(decodeErr){
-          attemptCount++;
-          if(attemptCount===1) console.log('ZXing: birinchi kadrda kod topilmadi (normal), davom etadi...', decodeErr && decodeErr.name);
-          /* NotFoundException - bu kadrda kod topilmadi, keyingi kadrga o'tamiz (normal holat) */
-        }
-      }
-      // Har ~120ms da bir marta urinamiz (CPU'ni tejash va aniqlikni oshirish uchun)
-      setTimeout(()=>{ rafId = requestAnimationFrame(tick); }, 120);
-    };
-    rafId = requestAnimationFrame(tick);
-  }catch(e){
-    console.error('ZXing init error', e);
-    // kamera baribir ko'rinadi, faqat avtomatik aniqlash ishlamaydi - qo'lda kiritish ishlaydi
+    activeHtml5Qr = new Html5Qrcode('html5qr-reader', { formatsToSupport, verbose:false });
+    await activeHtml5Qr.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: { width: 260, height: 160 }, aspectRatio: 1.4 },
+      (decodedText)=>{
+        if(stopped) return;
+        const val = decodedText;
+        stopScan();
+        onDetect(val);
+      },
+      ()=>{ /* har bir kadrda kod topilmasa shu yerga tushadi - normal holat, e'tibor bermaymiz */ }
+    );
+    if(!stopped){ statusEl.textContent = '🟢 ' + t('scanner_hint'); statusEl.style.color = 'var(--success)'; }
+  }catch(camErr){
+    console.error('html5-qrcode start error', camErr);
+    statusEl.innerHTML = `⚠️ ${t('camera_denied')}`;
+    statusEl.style.color = 'var(--danger)';
   }
 }
 
