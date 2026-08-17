@@ -311,6 +311,8 @@ uz:{app_name:"Master ERP", app_tag:"ERP TIZIMI", login:"Kirish", register:"Ro'yx
   camera_black_screen:"Kamera qora bo'lib qolyapti. Pastdagi maydonga qo'lda kiriting. (Sabab: brauzer/qurilma kamerani sahifaga uzata olmayapti — bu qurilma cheklovi bo'lishi mumkin.)",
   restock_scan:"Barkod orqali kirim", restock_add:"Qo'shish (+)", restock_done:"Qoldiqqa qo'shildi",
   code_found:"Kod topildi", confirm_use:"Tasdiqlash", scan_again:"Qayta skanerlash",
+  cart_synced:"Savat boshqa qurilmadan yangilandi",
+  search_product_ph:"Tovar nomini yozing... (rasmi bilan chiqadi)", change:"O'zgartirish", no_results:"Hech narsa topilmadi",
   price_currency:"Narx valyutasi", approx:"taxminan", telegram_settings:"Telegram integratsiyasi", bot_token:"Bot Token", chat_id:"Chat ID",
   telegram_enabled_label:"Telegram xabarlarini yoqish", save_settings:"Saqlash", telegram_help:"Token — @BotFather, Chat ID — @userinfobot orqali.",
   receipt_settings:"Chek sozlamalari", auto_print_receipt:"Sotuv saqlangach chekni avtomatik ko'rsatish", settings_saved:"Sozlamalar saqlandi", telegram_sent:"Telegram xabar yuborildi",
@@ -418,6 +420,8 @@ ru:{app_name:"Master ERP", app_tag:"ERP СИСТЕМА", login:"Войти", reg
   camera_black_screen:"Камера показывает чёрный экран. Введите код вручную ниже. (Причина: браузер/устройство не передаёт видео на страницу.)",
   restock_scan:"Приход по штрих-коду", restock_add:"Добавить (+)", restock_done:"Добавлено к остатку",
   code_found:"Код найден", confirm_use:"Подтвердить", scan_again:"Сканировать снова",
+  cart_synced:"Корзина обновлена с другого устройства",
+  search_product_ph:"Введите название товара... (появится с фото)", change:"Изменить", no_results:"Ничего не найдено",
   price_currency:"Валюта цены", approx:"примерно", telegram_settings:"Интеграция с Telegram", bot_token:"Токен бота", chat_id:"Chat ID",
   telegram_enabled_label:"Включить уведомления Telegram", save_settings:"Сохранить", telegram_help:"Токен — @BotFather, Chat ID — @userinfobot.",
   receipt_settings:"Настройки чека", auto_print_receipt:"Показывать чек автоматически после продажи", settings_saved:"Настройки сохранены", telegram_sent:"Сообщение отправлено в Telegram",
@@ -525,6 +529,8 @@ en:{app_name:"Master ERP", app_tag:"ERP SYSTEM", login:"Sign in", register:"Regi
   camera_black_screen:"Camera shows a black screen. Enter the code manually below. (Cause: browser/device isn't rendering video to the page.)",
   restock_scan:"Restock via barcode", restock_add:"Add (+)", restock_done:"Added to stock",
   code_found:"Code found", confirm_use:"Confirm", scan_again:"Scan again",
+  cart_synced:"Cart updated from another device",
+  search_product_ph:"Type product name... (shows with photo)", change:"Change", no_results:"No results found",
   price_currency:"Price currency", approx:"approx.", telegram_settings:"Telegram integration", bot_token:"Bot Token", chat_id:"Chat ID",
   telegram_enabled_label:"Enable Telegram notifications", save_settings:"Save", telegram_help:"Token via @BotFather, Chat ID via @userinfobot.",
   receipt_settings:"Receipt settings", auto_print_receipt:"Show receipt automatically after a sale", settings_saved:"Settings saved", telegram_sent:"Telegram message sent",
@@ -989,6 +995,11 @@ async function render(){
     updateAppIdentity(data);
     app.innerHTML = await renderShell(data);
     bindShellEvents(data);
+    if(state.page==='sales'){
+      if(cartSyncActivePage!=='sales'){ cartSyncActivePage='sales'; startCartSync(state.session.companyId); }
+    } else if(cartSyncActivePage==='sales'){
+      cartSyncActivePage = null; stopCartSync();
+    }
   }
  }catch(e){
   console.error('render error', e);
@@ -1343,6 +1354,76 @@ let saleForm = { customer:'', region:'Toshkent shahri', phone:'', selProductId:'
 let saleSearch = '';
 const REGIONS = ["Toshkent shahri","Toshkent viloyati","Andijon","Farg'ona","Namangan","Samarqand","Buxoro","Xorazm","Navoiy","Qashqadaryo","Surxondaryo","Jizzax","Sirdaryo","Qoraqalpog'iston"];
 
+/* ---- KO'P QURILMALI JONLI SAVAT SINXRONIZATSIYASI ----
+   Telefon va noutbuk (yoki bir nechta xodim) bir xil "faol savat"ni ko'rishi uchun:
+   savat o'zgarganda Supabase'ga yoziladi, va Sotuv sahifasi ochiq boâ€™lgan boshqa qurilmalar
+   buni davriy tekshirib (poll), o'z ekranini yangilab turadi. */
+let myDeviceId = (function(){
+  try{
+    let id = localStorage.getItem('device_id_v1');
+    if(!id){ id = uid(); localStorage.setItem('device_id_v1', id); }
+    return id;
+  }catch(e){ return uid(); }
+})();
+let cartSyncInterval = null;
+let cartSyncActivePage = null;
+let cartPushTimer = null;
+let lastCartSyncAt = 0;
+
+function activeCartKey(companyId){ return 'active_cart:'+companyId; }
+
+function pushActiveCart(companyId){
+  if(!companyId) return;
+  clearTimeout(cartPushTimer);
+  cartPushTimer = setTimeout(async ()=>{
+    const payload = {
+      cart: saleCart, form: { customer:saleForm.customer, region:saleForm.region, phone:saleForm.phone },
+      payments: { payNaqd:saleForm.payNaqd||0, payKarta:saleForm.payKarta||0, payNasiya:saleForm.payNasiya||0, paymentType:saleForm.paymentType||'' },
+      deviceId: myDeviceId, updatedAt: Date.now()
+    };
+    lastCartSyncAt = payload.updatedAt;
+    await sSet(activeCartKey(companyId), payload, true);
+  }, 450);
+}
+
+async function clearActiveCart(companyId){
+  if(!companyId) return;
+  clearTimeout(cartPushTimer);
+  lastCartSyncAt = Date.now();
+  await sDel(activeCartKey(companyId), true);
+}
+
+async function pullActiveCartOnce(companyId){
+  if(!companyId) return;
+  try{
+    const remote = await sGet(activeCartKey(companyId), true);
+    if(!remote) return;
+    if(remote.deviceId === myDeviceId) return; // o'zimiz yozgan - e'tiborsiz qoldiramiz
+    if(remote.updatedAt && remote.updatedAt <= lastCartSyncAt) return; // eskirgan/allaqachon ko'rilgan
+    lastCartSyncAt = remote.updatedAt || Date.now();
+    saleCart = remote.cart || [];
+    saleForm.customer = remote.form?.customer ?? saleForm.customer;
+    saleForm.region = remote.form?.region ?? saleForm.region;
+    saleForm.phone = remote.form?.phone ?? saleForm.phone;
+    if(remote.payments){
+      saleForm.payNaqd = remote.payments.payNaqd; saleForm.payKarta = remote.payments.payKarta; saleForm.payNasiya = remote.payments.payNasiya;
+    }
+    if(state.page==='sales'){
+      toast('🔄 ' + t('cart_synced'));
+      render();
+    }
+  }catch(e){ console.error('pullActiveCart error', e); }
+}
+
+function startCartSync(companyId){
+  stopCartSync();
+  pullActiveCartOnce(companyId);
+  cartSyncInterval = setInterval(()=>{ pullActiveCartOnce(companyId); }, 3000);
+}
+function stopCartSync(){
+  if(cartSyncInterval){ clearInterval(cartSyncInterval); cartSyncInterval = null; }
+}
+
 function nextInvoiceNo(data){
   const seq = (data.lastInvoiceSeq||0) + 1;
   data.lastInvoiceSeq = seq;
@@ -1389,13 +1470,44 @@ function renderSales(data){
         <button class="btn-3d btn-sm" id="btnBarcode">▤ ${t('barcode_scan')}</button>
       </div>
       <div class="field"><label>${t('product_name')}</label>
-        <select id="sf_product">
-          <option value="">${t('choose')}</option>
-          ${data.products.map(p=>{
-            const stockLabel = p.rollMode ? `${(p.rolls||[]).length} ${t('rolls_count')} · ${(p.rolls||[]).reduce((s,r)=>s+r.length,0)}${t('meter_short')}` : `${p.stock} ${p.unit}`;
-            return `<option value="${p.id}" ${saleForm.selProductId===p.id?'selected':''}>${p.name} (${stockLabel})</option>`;
-          }).join('')}
-        </select>
+        ${product ? `
+          <div style="display:flex; align-items:center; gap:10px; background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:10px;">
+            <div style="width:42px; height:42px; border-radius:9px; overflow:hidden; background:var(--panel); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:18px;">
+              ${product.image ? `<img src="${product.image}" style="width:100%; height:100%; object-fit:cover;">` : '📦'}
+            </div>
+            <div style="flex:1; min-width:0;">
+              <div style="font-weight:700; font-size:13.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${product.name}</div>
+              <div style="font-size:11px; color:var(--muted);">${product.rollMode ? `${(product.rolls||[]).length} ${t('rolls_count')} · ${(product.rolls||[]).reduce((s,r)=>s+r.length,0)}${t('meter_short')}` : `${product.stock} ${product.unit}`}</div>
+            </div>
+            <button type="button" class="btn-ghost btn-sm" id="sf_product_change">✕ ${t('change')}</button>
+          </div>
+        ` : `
+          <input id="sf_product_search" placeholder="${t('search_product_ph')}" value="${saleForm.productSearchQuery||''}" autocomplete="off">
+          ${(saleForm.productSearchQuery||'').trim() ? `
+            <div id="sf_product_results" style="max-height:280px; overflow-y:auto; margin-top:8px; border:1px solid var(--border); border-radius:10px; background:var(--panel2);">
+              ${(function(){
+                const q = saleForm.productSearchQuery.trim().toLowerCase();
+                const matches = data.products.filter(p=>
+                  (p.name||'').toLowerCase().includes(q) || (p.model||'').toLowerCase().includes(q) || (p.barcode||'').toLowerCase().includes(q)
+                ).slice(0,25);
+                if(!matches.length) return `<div style="padding:14px; text-align:center; color:var(--muted); font-size:12.5px;">${t('no_results')}</div>`;
+                return matches.map(p=>{
+                  const stockLabel = p.rollMode ? `${(p.rolls||[]).length} ${t('rolls_count')} · ${(p.rolls||[]).reduce((s,r)=>s+r.length,0)}${t('meter_short')}` : `${p.stock} ${p.unit}`;
+                  return `
+                    <div data-pick-product="${p.id}" style="display:flex; align-items:center; gap:10px; padding:9px 10px; border-bottom:1px solid var(--border); cursor:pointer;">
+                      <div style="width:38px; height:38px; border-radius:8px; overflow:hidden; background:var(--panel); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:16px;">
+                        ${p.image ? `<img src="${p.image}" style="width:100%; height:100%; object-fit:cover;">` : '📦'}
+                      </div>
+                      <div style="flex:1; min-width:0;">
+                        <div style="font-weight:700; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${p.name}${p.model?` · ${p.model}`:''}</div>
+                        <div style="font-size:10.5px; color:var(--muted);">${stockLabel}</div>
+                      </div>
+                    </div>`;
+                }).join('');
+              })()}
+            </div>
+          ` : ''}
+        `}
       </div>
       ${product && product.rollMode ? `
         <div class="field"><label>${t('select_roll')}</label>
@@ -2627,6 +2739,7 @@ function addToCart(data){
 
   saleCart.push({ id:uid(), productId:product.id, productName:product.name, mode, rollId, qty, unit:product.unit, price, total:price*qty });
   saleForm.qty = 1; saleForm.box = 1; saleForm.price = 0;
+  pushActiveCart(state.session.companyId);
   toast(t('saved'));
   render();
 }
@@ -2718,6 +2831,7 @@ async function finalizeSale(data){
   const wantsTelegram = document.getElementById('sf_telegram') ? document.getElementById('sf_telegram').checked : true;
   const autoReceipt = data.settings ? data.settings.autoReceipt!==false : true;
   saleCart = []; saleForm = { customer:'', region:saleForm.region, phone:'', selProductId:'', selRollId:'', sellMode:'roll', qty:1, box:1, price:0, payNaqd:0, payKarta:0, payNasiya:0, priceCurrency:'uzs' };
+  clearActiveCart(state.session.companyId);
   toast(t('saved'));
   render();
   if(wantsTelegram) sendTelegramNotification(data, newSale);
@@ -3712,18 +3826,31 @@ function bindShellEvents(data){
 
     /* ---- Sales page bindings ---- */
     const sfCustomer = document.getElementById('sf_customer');
-    if(sfCustomer) sfCustomer.oninput = ()=>{ saleForm.customer = sfCustomer.value; };
+    if(sfCustomer) sfCustomer.oninput = ()=>{ saleForm.customer = sfCustomer.value; pushActiveCart(state.session.companyId); };
     const sfRegion = document.getElementById('sf_region');
-    if(sfRegion) sfRegion.onchange = ()=>{ saleForm.region = sfRegion.value; };
+    if(sfRegion) sfRegion.onchange = ()=>{ saleForm.region = sfRegion.value; pushActiveCart(state.session.companyId); };
     const sfPhone = document.getElementById('sf_phone');
-    if(sfPhone) sfPhone.oninput = ()=>{ saleForm.phone = sfPhone.value; };
-    const sfProduct = document.getElementById('sf_product');
-    if(sfProduct) sfProduct.onchange = ()=>{
-      saleForm.selProductId = sfProduct.value;
-      const prod = data.products.find(p=>p.id===saleForm.selProductId);
-      saleForm.selRollId = (prod && prod.rollMode && prod.rolls && prod.rolls[0]) ? prod.rolls[0].id : '';
-      saleForm.sellMode = 'roll';
-      saleForm.price = prod ? prod.price : 0; saleForm.priceCurrency = prod ? (prod.priceCurrency||"uzs") : "uzs";
+    if(sfPhone) sfPhone.oninput = ()=>{ saleForm.phone = sfPhone.value; pushActiveCart(state.session.companyId); };
+    const sfProductSearch = document.getElementById('sf_product_search');
+    if(sfProductSearch){
+      sfProductSearch.oninput = ()=>{ saleForm.productSearchQuery = sfProductSearch.value; render(); };
+      setTimeout(()=>{ try{ sfProductSearch.focus(); sfProductSearch.selectionStart = sfProductSearch.value.length; }catch(e){} }, 0);
+    }
+    document.querySelectorAll('[data-pick-product]').forEach(el=>{
+      el.onclick = ()=>{
+        const prod = data.products.find(p=>p.id===el.dataset.pickProduct);
+        if(!prod) return;
+        saleForm.selProductId = prod.id;
+        saleForm.productSearchQuery = '';
+        saleForm.selRollId = (prod.rollMode && prod.rolls && prod.rolls[0]) ? prod.rolls[0].id : '';
+        saleForm.sellMode = 'roll';
+        saleForm.price = prod.price; saleForm.priceCurrency = prod.priceCurrency||"uzs";
+        render();
+      };
+    });
+    const sfProductChange = document.getElementById('sf_product_change');
+    if(sfProductChange) sfProductChange.onclick = ()=>{
+      saleForm.selProductId = ''; saleForm.productSearchQuery = '';
       render();
     };
     const sfRoll = document.getElementById('sf_roll');
@@ -3755,11 +3882,12 @@ function bindShellEvents(data){
       });
     };
     document.querySelectorAll('[data-cart-remove]').forEach(b=>{
-      b.onclick = ()=>{ saleCart.splice(Number(b.dataset.cartRemove),1); render(); };
+      b.onclick = ()=>{ saleCart.splice(Number(b.dataset.cartRemove),1); pushActiveCart(state.session.companyId); render(); };
     });
     const closeSaleForm = document.getElementById('closeSaleForm');
     if(closeSaleForm) closeSaleForm.onclick = ()=>{
       saleCart = []; saleForm = { customer:'', region:'Toshkent shahri', phone:'', selProductId:'', selRollId:'', sellMode:'roll', qty:1, box:1, price:0, payNaqd:0, payKarta:0, payNasiya:0 };
+      clearActiveCart(state.session.companyId);
       state.page = 'dashboard';
       render();
     };
@@ -3771,15 +3899,16 @@ function bindShellEvents(data){
         else if(p==='karta'){ saleForm.payNaqd=0; saleForm.payKarta=cartTotal; saleForm.payNasiya=0; }
         else if(p==='split'){ saleForm.payNaqd=Math.round(cartTotal/2); saleForm.payKarta=cartTotal-Math.round(cartTotal/2); saleForm.payNasiya=0; }
         else if(p==='nasiya'){ saleForm.payNaqd=0; saleForm.payKarta=0; saleForm.payNasiya=cartTotal; }
+        pushActiveCart(state.session.companyId);
         render();
       };
     });
     const payNaqd = document.getElementById('pay_naqd');
-    if(payNaqd) payNaqd.oninput = ()=>{ saleForm.payNaqd = payNaqd.value; };
+    if(payNaqd) payNaqd.oninput = ()=>{ saleForm.payNaqd = payNaqd.value; pushActiveCart(state.session.companyId); };
     const payKarta = document.getElementById('pay_karta');
-    if(payKarta) payKarta.oninput = ()=>{ saleForm.payKarta = payKarta.value; };
+    if(payKarta) payKarta.oninput = ()=>{ saleForm.payKarta = payKarta.value; pushActiveCart(state.session.companyId); };
     const payNasiya = document.getElementById('pay_nasiya');
-    if(payNasiya) payNasiya.oninput = ()=>{ saleForm.payNasiya = payNasiya.value; };
+    if(payNasiya) payNasiya.oninput = ()=>{ saleForm.payNasiya = payNasiya.value; pushActiveCart(state.session.companyId); };
     const btnSaveSale = document.getElementById('btnSaveSale');
     if(btnSaveSale) btnSaveSale.onclick = ()=>finalizeSale(data);
     const sfSearch = document.getElementById('sf_search');
