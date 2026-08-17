@@ -313,6 +313,9 @@ uz:{app_name:"Master ERP", app_tag:"ERP TIZIMI", login:"Kirish", register:"Ro'yx
   code_found:"Kod topildi", confirm_use:"Tasdiqlash", scan_again:"Qayta skanerlash",
   cart_synced:"Savat boshqa qurilmadan yangilandi",
   search_product_ph:"Tovar nomini yozing... (rasmi bilan chiqadi)", change:"O'zgartirish", no_results:"Hech narsa topilmadi",
+  chat_id_multi_hint:"Bir nechta odamga yuborish uchun ID'larni vergul bilan ajratib yozing (masalan: 111, 222, 333)",
+  close_cash_register:"Kassani yopish", close_cash_hint:"Bugungi to'liq hisobot Telegram'ga yuboriladi.", close_cash_no_telegram:"Telegram ulanmagan - avval Sozlamalar'da ulang.",
+  send_and_close:"Yuborish va yopish",
   price_currency:"Narx valyutasi", approx:"taxminan", telegram_settings:"Telegram integratsiyasi", bot_token:"Bot Token", chat_id:"Chat ID",
   telegram_enabled_label:"Telegram xabarlarini yoqish", save_settings:"Saqlash", telegram_help:"Token — @BotFather, Chat ID — @userinfobot orqali.",
   receipt_settings:"Chek sozlamalari", auto_print_receipt:"Sotuv saqlangach chekni avtomatik ko'rsatish", settings_saved:"Sozlamalar saqlandi", telegram_sent:"Telegram xabar yuborildi",
@@ -422,6 +425,9 @@ ru:{app_name:"Master ERP", app_tag:"ERP СИСТЕМА", login:"Войти", reg
   code_found:"Код найден", confirm_use:"Подтвердить", scan_again:"Сканировать снова",
   cart_synced:"Корзина обновлена с другого устройства",
   search_product_ph:"Введите название товара... (появится с фото)", change:"Изменить", no_results:"Ничего не найдено",
+  chat_id_multi_hint:"Чтобы отправить нескольким людям, укажите ID через запятую (например: 111, 222, 333)",
+  close_cash_register:"Закрыть кассу", close_cash_hint:"Полный отчёт за сегодня будет отправлен в Telegram.", close_cash_no_telegram:"Telegram не подключён - сначала подключите в Настройках.",
+  send_and_close:"Отправить и закрыть",
   price_currency:"Валюта цены", approx:"примерно", telegram_settings:"Интеграция с Telegram", bot_token:"Токен бота", chat_id:"Chat ID",
   telegram_enabled_label:"Включить уведомления Telegram", save_settings:"Сохранить", telegram_help:"Токен — @BotFather, Chat ID — @userinfobot.",
   receipt_settings:"Настройки чека", auto_print_receipt:"Показывать чек автоматически после продажи", settings_saved:"Настройки сохранены", telegram_sent:"Сообщение отправлено в Telegram",
@@ -531,6 +537,9 @@ en:{app_name:"Master ERP", app_tag:"ERP SYSTEM", login:"Sign in", register:"Regi
   code_found:"Code found", confirm_use:"Confirm", scan_again:"Scan again",
   cart_synced:"Cart updated from another device",
   search_product_ph:"Type product name... (shows with photo)", change:"Change", no_results:"No results found",
+  chat_id_multi_hint:"To send to multiple people, separate IDs with commas (e.g: 111, 222, 333)",
+  close_cash_register:"Close register", close_cash_hint:"Today's full report will be sent to Telegram.", close_cash_no_telegram:"Telegram not connected - connect it in Settings first.",
+  send_and_close:"Send & close",
   price_currency:"Price currency", approx:"approx.", telegram_settings:"Telegram integration", bot_token:"Bot Token", chat_id:"Chat ID",
   telegram_enabled_label:"Enable Telegram notifications", save_settings:"Save", telegram_help:"Token via @BotFather, Chat ID via @userinfobot.",
   receipt_settings:"Receipt settings", auto_print_receipt:"Show receipt automatically after a sale", settings_saved:"Settings saved", telegram_sent:"Telegram message sent",
@@ -902,6 +911,100 @@ async function openBarcodeScanner(onDetect){
 }
 
 /* ============ TELEGRAM ============ */
+/* Kunlik kassa yopish hisoboti - bugungi savdo, to'lovlar, foyda, rasxod va sotilgan tovarlarni Telegram'ga yuboradi */
+function buildDailyReportText(data, dateStr){
+  const sales = data.sales.filter(s=>s.date===dateStr);
+  const expenses = (data.expenses||[]).filter(e=>e.date===dateStr);
+  const kassaTushum = sales.reduce((s,x)=>s+Number(x.total||0),0);
+  const rasxod = expenses.reduce((s,x)=>s+Number(x.amount||0),0);
+  const sofKassa = kassaTushum - rasxod;
+  const naqd = sales.reduce((s,x)=>s+Number(x.naqdAmount||0),0);
+  const karta = sales.reduce((s,x)=>s+Number(x.kartaAmount||0),0);
+  const nasiya = sales.reduce((s,x)=>s+Number(x.nasiyaAmount||0),0);
+  const sofFoyda = sales.filter(x=>Number(x.nasiyaAmount||0)<=0 || x.paid).reduce((s,x)=>{
+    const itemProfit = (x.items||[]).reduce((s2,it)=>{
+      const prod = data.products.find(p=>p.id===it.productId || p.name===it.productName);
+      const cost = prod ? (prod.costCurrency==='usd' ? Number(prod.cost||0)*FX_RATE : Number(prod.cost||0)) : 0;
+      return s2 + (Number(it.price||0)-cost) * Number(it.qty||0);
+    },0);
+    return s + itemProfit;
+  },0) - rasxod;
+
+  const prodMap = {};
+  sales.forEach(s=>{
+    (s.items||[]).forEach(it=>{
+      if(!prodMap[it.productName]) prodMap[it.productName] = { qty:0, unit:it.unit||'' };
+      prodMap[it.productName].qty += Number(it.qty||0);
+    });
+  });
+  const soldLines = Object.entries(prodMap).sort((a,b)=>b[1].qty-a[1].qty);
+
+  const lines = [
+    `🔒 *KUNLIK KASSA HISOBOTI*`,
+    `📅 ${dateStr}`,
+    `🏪 ${state.session.companyName}`,
+    ``,
+    `💵 Umumiy savdo: *${money(kassaTushum)} UZS*`,
+    `📉 Rasxodlar: ${money(rasxod)} UZS`,
+    `💰 Sof kassa: *${money(sofKassa)} UZS*`,
+    `📈 Sof foyda: *${money(sofFoyda)} UZS*`,
+    ``,
+    `*To'lovlar bo'yicha:*`,
+    `💴 Naqd: ${money(naqd)} UZS`,
+    `💳 Karta: ${money(karta)} UZS`,
+    `📝 Nasiya: ${money(nasiya)} UZS`,
+    `🧾 Sotuvlar soni: ${sales.length} ta`,
+  ];
+  if(expenses.length){
+    lines.push(``, `*Rasxodlar:*`);
+    expenses.forEach(e=>lines.push(`• ${e.name} — ${money(e.amount)} UZS`));
+  }
+  if(soldLines.length){
+    lines.push(``, `*Sotilgan tovarlar:*`);
+    soldLines.forEach(([name,v])=>lines.push(`• ${name} — ${v.qty}${v.unit}`));
+  } else {
+    lines.push(``, `_Bugun hech narsa sotilmadi_`);
+  }
+  return lines.join('\n');
+}
+
+async function sendTelegramText(cfg, text){
+  const chatIds = String(cfg.chatId).split(/[,\s\n]+/).map(s=>s.trim()).filter(Boolean);
+  let anyOk = false;
+  for(const cid of chatIds){
+    try{
+      const res = await fetch(`https://api.telegram.org/bot${cfg.token}/sendMessage`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ chat_id: cid, text, parse_mode:'Markdown' })
+      });
+      if(res.ok) anyOk = true;
+    }catch(e){}
+  }
+  return anyOk;
+}
+
+function modalCloseCashRegister(data){
+  const dateStr = todayStr();
+  const reportText = buildDailyReportText(data, dateStr);
+  const cfg = data.telegramConfig;
+  const hasTelegram = cfg && cfg.enabled && cfg.token && cfg.chatId;
+  openModal(`
+    <h3 style="margin-bottom:10px;">🔒 ${t('close_cash_register')}</h3>
+    <div style="font-size:12px; color:var(--muted); margin-bottom:14px;">${hasTelegram ? t('close_cash_hint') : t('close_cash_no_telegram')}</div>
+    <div style="background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:14px; margin-bottom:16px; white-space:pre-wrap; font-family:'IBM Plex Mono',monospace; font-size:12px; max-height:340px; overflow-y:auto;">${reportText.replace(/\*/g,'').replace(/_/g,'')}</div>
+    <button class="btn-3d" id="m_send" style="width:100%; margin-bottom:10px;" ${!hasTelegram?'disabled':''}>✈️ ${t('send_and_close')}</button>
+    <button class="btn-ghost" id="m_cancel" style="width:100%;">${t('cancel')}</button>
+  `);
+  document.getElementById('m_cancel').onclick = closeModal;
+  const sendBtn = document.getElementById('m_send');
+  if(sendBtn) sendBtn.onclick = async ()=>{
+    sendBtn.disabled = true; sendBtn.textContent = '⏳ ...';
+    const ok = await sendTelegramText(cfg, reportText);
+    closeModal();
+    toast(ok ? t('telegram_sent') : t('telegram_failed'));
+  };
+}
+
 async function sendTelegramNotification(data, sale){
   const cfg = data.telegramConfig;
   if(!cfg || !cfg.enabled || !cfg.token || !cfg.chatId) return;
@@ -913,13 +1016,8 @@ async function sendTelegramNotification(data, sale){
     `📅 ${sale.date}`
   ];
   const text = lines.join('\n');
-  try{
-    const res = await fetch(`https://api.telegram.org/bot${cfg.token}/sendMessage`, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ chat_id: cfg.chatId, text, parse_mode:'Markdown' })
-    });
-    if(res.ok) toast(t('telegram_sent')); else toast(t('telegram_failed'));
-  }catch(e){ toast(t('telegram_failed')); }
+  const ok = await sendTelegramText(cfg, text);
+  if(ok) toast(t('telegram_sent')); else toast(t('telegram_failed'));
 }
 
 /* ============ AUTH ============ */
@@ -1254,6 +1352,7 @@ function renderDashboard(data){
         <button class="btn-ghost btn-sm" id="btnToday" style="flex-shrink:0; padding:7px 10px;">${t('today')}</button>
       </div>
       <button class="btn-3d btn-sm" id="openExpenseModal" style="width:100%; margin-top:8px;">+ ${t('rasxod')}</button>
+      <button class="btn-3d btn-sm" id="btnCloseCash" style="width:100%; margin-top:8px; background:linear-gradient(180deg,#3E4C63,#1E2938 60%,#111925);">🔒 ${t('close_cash_register')}</button>
     </div>
 
     <div class="grid grid-3" style="margin-bottom:16px;">
@@ -2664,7 +2763,7 @@ function renderSettings(data){
         <div style="font-size:12px; color:var(--muted); margin-bottom:16px;">${t('telegram_help')}</div>
         <div class="grid grid-2" style="gap:12px;">
           <div class="field"><label>${t('bot_token')}</label><input id="tg_token" placeholder="123456:ABC-DEF..." value="${(data.telegramConfig&&data.telegramConfig.token)||''}"></div>
-          <div class="field"><label>${t('chat_id')}</label><input id="tg_chatid" placeholder="123456789" value="${(data.telegramConfig&&data.telegramConfig.chatId)||''}"></div>
+          <div class="field"><label>${t('chat_id')}</label><input id="tg_chatid" placeholder="123456789, 987654321" value="${(data.telegramConfig&&data.telegramConfig.chatId)||''}"><div style="font-size:11px; color:var(--muted); margin-top:4px;">${t('chat_id_multi_hint')}</div></div>
         </div>
         <label style="display:flex; align-items:center; gap:10px; background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:12px; margin:10px 0 6px; text-transform:none; font-weight:600; cursor:pointer;">
           <input type="checkbox" id="tg_enabled" ${(data.telegramConfig&&data.telegramConfig.enabled)?'checked':''} style="width:auto; accent-color:var(--accent);"> ${t('telegram_enabled_label')}
@@ -3684,6 +3783,8 @@ function bindShellEvents(data){
     if(openExpense) openExpense.onclick = ()=>modalAddExpense(data);
     const openExpense2 = document.getElementById('openExpenseModal2');
     if(openExpense2) openExpense2.onclick = ()=>modalAddExpense(data);
+    const btnCloseCash = document.getElementById('btnCloseCash');
+    if(btnCloseCash) btnCloseCash.onclick = ()=>modalCloseCashRegister(data);
 
     /* ---- Incoming (Kirim) page bindings ---- */
     const btnNewIncoming = document.getElementById('btnNewIncoming');
