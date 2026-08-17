@@ -875,9 +875,12 @@ async function openBarcodeScanner(onDetect){
       ZXing.BarcodeFormat.CODE_128, ZXing.BarcodeFormat.CODE_39, ZXing.BarcodeFormat.QR_CODE
     ];
     hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
-    zxingReader = new ZXing.BrowserMultiFormatReader(hints);
+    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+    zxingReader = new ZXing.MultiFormatReader();
+    zxingReader.setHints(hints);
     const canvas = document.getElementById('scanCanvas');
     const ctx = canvas.getContext('2d', { willReadFrequently:true });
+    let attemptCount = 0;
 
     const tick = ()=>{
       if(stopped) return;
@@ -889,16 +892,24 @@ async function openBarcodeScanner(onDetect){
         canvas.height = video.videoHeight;
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         try{
-          const result = zxingReader.decodeFromCanvas(canvas);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const luminanceSource = new ZXing.RGBLuminanceSource(imageData.data, canvas.width, canvas.height);
+          const binaryBitmap = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(luminanceSource));
+          const result = zxingReader.decode(binaryBitmap);
           if(result){
             const val = result.getText();
             stopScan();
             onDetect(val);
             return;
           }
-        }catch(decodeErr){ /* bu kadrda kod topilmadi - davom etamiz */ }
+        }catch(decodeErr){
+          attemptCount++;
+          if(attemptCount===1) console.log('ZXing: birinchi kadrda kod topilmadi (normal), davom etadi...', decodeErr && decodeErr.name);
+          /* NotFoundException - bu kadrda kod topilmadi, keyingi kadrga o'tamiz (normal holat) */
+        }
       }
-      rafId = requestAnimationFrame(tick);
+      // Har ~120ms da bir marta urinamiz (CPU'ni tejash va aniqlikni oshirish uchun)
+      setTimeout(()=>{ rafId = requestAnimationFrame(tick); }, 120);
     };
     rafId = requestAnimationFrame(tick);
   }catch(e){
