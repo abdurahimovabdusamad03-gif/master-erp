@@ -2585,14 +2585,20 @@ function renderSettings(data){
 }
 
 /* ============ MODALS ============ */
+let modalStack = [];
 function openModal(html){
   const bg = document.createElement('div');
-  bg.className='modal-bg'; bg.id='modalBg';
+  const myId = 'modalBg_' + uid();
+  bg.className='modal-bg'; bg.id=myId;
   bg.innerHTML = `<div class="card modal">${html}</div>`;
   bg.onclick = (e)=>{ if(e.target===bg) closeModal(); };
   document.body.appendChild(bg);
+  modalStack.push(myId);
 }
-function closeModal(){ const m=document.getElementById('modalBg'); if(m) m.remove(); }
+function closeModal(){
+  const id = modalStack.pop();
+  if(id){ const m=document.getElementById(id); if(m) m.remove(); }
+}
 
 /* ---- SALES CART LOGIC ---- */
 function addToCart(data){
