@@ -310,6 +310,7 @@ uz:{app_name:"Master ERP", app_tag:"ERP TIZIMI", login:"Kirish", register:"Ro'yx
   standalone_camera_bug:"Bosh ekrandagi ilova rejimida iOS'ning kamera xatosi (Apple WebKit bug). Pastdagi maydonga qo'lda kiriting, YOKI havolani Safari'da (bosh ekran belgisidan emas) to'g'ridan-to'g'ri ochib skanerlang.",
   camera_black_screen:"Kamera qora bo'lib qolyapti. Pastdagi maydonga qo'lda kiriting. (Sabab: brauzer/qurilma kamerani sahifaga uzata olmayapti — bu qurilma cheklovi bo'lishi mumkin.)",
   restock_scan:"Barkod orqali kirim", restock_add:"Qo'shish (+)", restock_done:"Qoldiqqa qo'shildi",
+  code_found:"Kod topildi", confirm_use:"Tasdiqlash", scan_again:"Qayta skanerlash",
   price_currency:"Narx valyutasi", approx:"taxminan", telegram_settings:"Telegram integratsiyasi", bot_token:"Bot Token", chat_id:"Chat ID",
   telegram_enabled_label:"Telegram xabarlarini yoqish", save_settings:"Saqlash", telegram_help:"Token — @BotFather, Chat ID — @userinfobot orqali.",
   receipt_settings:"Chek sozlamalari", auto_print_receipt:"Sotuv saqlangach chekni avtomatik ko'rsatish", settings_saved:"Sozlamalar saqlandi", telegram_sent:"Telegram xabar yuborildi",
@@ -416,6 +417,7 @@ ru:{app_name:"Master ERP", app_tag:"ERP СИСТЕМА", login:"Войти", reg
   standalone_camera_bug:"Ошибка камеры iOS в режиме приложения на главном экране (баг Apple WebKit). Введите код вручную ниже, ИЛИ откройте ссылку прямо в Safari (не через значок на экране) для сканирования.",
   camera_black_screen:"Камера показывает чёрный экран. Введите код вручную ниже. (Причина: браузер/устройство не передаёт видео на страницу.)",
   restock_scan:"Приход по штрих-коду", restock_add:"Добавить (+)", restock_done:"Добавлено к остатку",
+  code_found:"Код найден", confirm_use:"Подтвердить", scan_again:"Сканировать снова",
   price_currency:"Валюта цены", approx:"примерно", telegram_settings:"Интеграция с Telegram", bot_token:"Токен бота", chat_id:"Chat ID",
   telegram_enabled_label:"Включить уведомления Telegram", save_settings:"Сохранить", telegram_help:"Токен — @BotFather, Chat ID — @userinfobot.",
   receipt_settings:"Настройки чека", auto_print_receipt:"Показывать чек автоматически после продажи", settings_saved:"Настройки сохранены", telegram_sent:"Сообщение отправлено в Telegram",
@@ -522,6 +524,7 @@ en:{app_name:"Master ERP", app_tag:"ERP SYSTEM", login:"Sign in", register:"Regi
   standalone_camera_bug:"iOS camera bug in home-screen app mode (Apple WebKit bug). Enter the code manually below, OR open the link directly in Safari (not the home-screen icon) to scan.",
   camera_black_screen:"Camera shows a black screen. Enter the code manually below. (Cause: browser/device isn't rendering video to the page.)",
   restock_scan:"Restock via barcode", restock_add:"Add (+)", restock_done:"Added to stock",
+  code_found:"Code found", confirm_use:"Confirm", scan_again:"Scan again",
   price_currency:"Price currency", approx:"approx.", telegram_settings:"Telegram integration", bot_token:"Bot Token", chat_id:"Chat ID",
   telegram_enabled_label:"Enable Telegram notifications", save_settings:"Save", telegram_help:"Token via @BotFather, Chat ID via @userinfobot.",
   receipt_settings:"Receipt settings", auto_print_receipt:"Show receipt automatically after a sale", settings_saved:"Settings saved", telegram_sent:"Telegram message sent",
@@ -792,7 +795,15 @@ async function openBarcodeScanner(onDetect){
     <h3 style="margin-bottom:10px;">📷 ${t('scanner_title')}</h3>
     <div id="scanStatus" style="font-size:12.5px; color:var(--muted); margin-bottom:12px;">⏳ ${t('loading')}</div>
     <div id="html5qr-reader" style="width:100%; border-radius:12px; overflow:hidden; background:#000; min-height:200px;"></div>
-    <div style="border:2px dashed var(--accent); border-radius:10px; padding:14px; margin-top:14px; background:rgba(62,155,255,0.06);">
+    <div id="scanFoundBox" style="display:none; background:rgba(24,168,118,0.1); border:2px solid var(--success); border-radius:10px; padding:14px; margin-top:14px; text-align:center;">
+      <div style="font-size:11px; color:var(--success); font-weight:700; text-transform:uppercase; margin-bottom:6px;">✅ ${t('code_found')}</div>
+      <div id="scanFoundValue" class="mono" style="font-size:20px; font-weight:800; letter-spacing:1px; margin-bottom:12px;"></div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn-3d" id="m_confirm_found" style="flex:1; background:linear-gradient(180deg,#5CFFB8,#18A876 60%,#0B7A50);">✓ ${t('confirm_use')}</button>
+        <button class="btn-ghost" id="m_reject_found" style="flex:1;">↺ ${t('scan_again')}</button>
+      </div>
+    </div>
+    <div id="manualEntryBox" style="border:2px dashed var(--accent); border-radius:10px; padding:14px; margin-top:14px; background:rgba(62,155,255,0.06);">
       <label style="color:var(--accent-dim);">⌨️ ${t('manual_entry')}</label>
       <div style="display:flex; gap:8px;">
         <input id="manualBarcode2" placeholder="${t('enter_barcode')}" style="flex:1;" autofocus>
@@ -806,6 +817,7 @@ async function openBarcodeScanner(onDetect){
   setTimeout(()=>{ try{ manualInput.focus(); }catch(e){} }, 150);
 
   let stopped = false;
+  let paused = false;
 
   async function stopScan(){
     if(stopped) return;
@@ -856,10 +868,22 @@ async function openBarcodeScanner(onDetect){
       { facingMode: 'environment' },
       { fps: 10, qrbox: { width: 260, height: 160 }, aspectRatio: 1.4 },
       (decodedText)=>{
-        if(stopped) return;
-        const val = decodedText;
-        stopScan();
-        onDetect(val);
+        if(stopped || paused) return;
+        paused = true; // yana kod topilib, ekranni "chayqalib" ketmasligi uchun
+        try{ activeHtml5Qr.pause(true); }catch(e){}
+        document.getElementById('scanFoundValue').textContent = decodedText;
+        document.getElementById('scanFoundBox').style.display = 'block';
+        document.getElementById('manualEntryBox').style.display = 'none';
+        document.getElementById('m_confirm_found').onclick = ()=>{
+          stopScan();
+          onDetect(decodedText);
+        };
+        document.getElementById('m_reject_found').onclick = ()=>{
+          document.getElementById('scanFoundBox').style.display = 'none';
+          document.getElementById('manualEntryBox').style.display = 'block';
+          paused = false;
+          try{ activeHtml5Qr.resume(); }catch(e){}
+        };
       },
       ()=>{ /* har bir kadrda kod topilmasa shu yerga tushadi - normal holat, e'tibor bermaymiz */ }
     );
