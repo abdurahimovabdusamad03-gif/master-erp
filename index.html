@@ -669,7 +669,7 @@ function t(k){ return (STR[state.lang] && STR[state.lang][k]) || k; }
 
 /* ============ STATE ============ */
 const todayStr = ()=> new Date().toISOString().slice(0,10);
-const APP_VERSION = "2026-08-18-m"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
+const APP_VERSION = "2026-08-18-n"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
 let updateAvailable = false;
 let state = { lang:'uz', theme:'sapphire', session:null, page:'dashboard', partnerTab:'customers', currency:'uzs', dateFrom: todayStr(), dateTo: todayStr(), dashPeriod:'today' };
 
@@ -853,6 +853,35 @@ async function getCompanyData(companyId){
   if(!base.employees) base.employees = [];
   return base;
 }
+
+/* Ma'lumotni har safar (har bir render()da) qaytadan serverdan yuklamaslik uchun xotirada keshlaymiz.
+   Bu "bo'limdan bo'limga o'tishda qotish", "qidiruvda qotish" kabi muammolarning asosiy sababi edi -
+   chunki avval HAR BIR harakat butun kompaniya ma'lumotini (barcha tovar, sotuv, rasmlar) qayta so'rar edi. */
+let companyDataCache = null;
+let companyDataCacheId = null;
+async function getCompanyDataCached(companyId, forceRefresh){
+  if(!forceRefresh && companyDataCache && companyDataCacheId===companyId){
+    return companyDataCache;
+  }
+  const fresh = await getCompanyData(companyId);
+  companyDataCache = fresh;
+  companyDataCacheId = companyId;
+  return fresh;
+}
+function invalidateCompanyDataCache(){
+  companyDataCache = null;
+  companyDataCacheId = null;
+}
+/* Fon rejimida (foydalanuvchini bezovta qilmasdan) davriy yangilanish - boshqa qurilma/xodim
+   qilgan o'zgarishlar ko'rinishi uchun. Foydalanuvchi yozayotgan yoki oyna ochiq bo'lsa - kutamiz. */
+setInterval(async ()=>{
+  if(!state.session) return;
+  const active = document.activeElement;
+  const isTyping = active && ['INPUT','TEXTAREA','SELECT'].includes(active.tagName);
+  if(isTyping || modalStack.length>0) return;
+  await getCompanyDataCached(state.session.companyId, true);
+  render();
+}, 30000);
 async function saveCompanyData(companyId, data){
   if(!data.expenses) data.expenses = [];
   if(!data.telegramConfig) data.telegramConfig = {token:'',chatId:'',enabled:false};
@@ -1160,6 +1189,7 @@ async function loginUser(identifier, password){
 async function logout(){
   stopCartSync();
   cartSyncActivePage = null;
+  invalidateCompanyDataCache();
   await sDel('session', false);
   state.session = null;
   state.page='dashboard';
@@ -1196,7 +1226,7 @@ async function render(){
     app.innerHTML = renderAuth();
     bindAuthEvents();
   } else {
-    const data = await getCompanyData(state.session.companyId);
+    const data = await getCompanyDataCached(state.session.companyId);
     FX_RATE = Number(data.settings && data.settings.fxRate) || 12700;
     updateAppIdentity(data);
     app.innerHTML = await renderShell(data);
@@ -2212,6 +2242,7 @@ async function modalResetChoice(data){
     closeModal();
     stopCartSync();
     cartSyncActivePage = null;
+    invalidateCompanyDataCache();
     state.session = null;
     state.page = 'dashboard';
     toast(t('reset_done'));
