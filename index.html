@@ -360,6 +360,7 @@ uz:{app_name:"Master ERP", app_tag:"ERP TIZIMI", login:"Kirish", register:"Ro'yx
   csv_columns_hint:"Ustunlar: nomi,modeli,birlik,soni,tannarx,narx", choose_file:"Faylni tanlang",
   xlsx_columns_hint:"Ustunlar: Nomi | Modeli | Birligi | Miqdor | Tannarx | Tannarx valyutasi | Narx | Narx valyutasi", import_skipped:"qator o'tkazib yuborildi",
   xlsx_roll_hint:"Metr birligida (rulon) tovarlar uchun Miqdor ustuniga bir nechta rulon uzunligini + belgisi bilan yozing: masalan 32+45+18 (3 ta rulon, mos ravishda 32m, 45m, 18m)", xlsx_load_failed:"Excel kutubxonasini yuklab bo'lmadi - internetni tekshiring",
+  xprinter_hint:"Xprinter (58/80mm) uchun moslashtirilgan. Chop etishda tizim oynasida qog'oz o'lchamini xuddi shu (58mm yoki 80mm rulon) qilib tanlang.",
   transfer_title:"Omborlar orasida o'tkazish", transfer_product:"Tovarni tanlang", transfer_from:"Qayerdan", transfer_to:"Qayerga",
   transfer_qty:"Miqdor", transfer_roll_pick:"Rulonni tanlang", transfer_btn:"O'tkazish", transfer_done:"Tovar o'tkazildi",
   jami:"Jami", variety:"xil", cost_value:"Tannarx", sale_value:"Sotish", filter_all:"Barchasi", filter_store:"Do'kon", filter_warehouse:"Ombor",
@@ -478,6 +479,7 @@ ru:{app_name:"Master ERP", app_tag:"ERP СИСТЕМА", login:"Войти", reg
   csv_columns_hint:"Столбцы: название,модель,ед.изм,кол-во,себестоимость,цена", choose_file:"Выберите файл",
   xlsx_columns_hint:"Столбцы: Название | Модель | Ед.изм | Количество | Себестоимость | Валюта себест. | Цена | Валюта цены", import_skipped:"строк пропущено",
   xlsx_roll_hint:"Для товаров в метрах (рулоны) укажите несколько длин через +: например 32+45+18 (3 рулона по 32м, 45м, 18м)", xlsx_load_failed:"Не удалось загрузить библиотеку Excel - проверьте интернет",
+  xprinter_hint:"Адаптировано для Xprinter (58/80мм). При печати выберите такой же размер бумаги (рулон 58мм или 80мм) в системном окне печати.",
   transfer_title:"Перемещение между складами", transfer_product:"Выберите товар", transfer_from:"Откуда", transfer_to:"Куда",
   transfer_qty:"Количество", transfer_roll_pick:"Выберите рулон", transfer_btn:"Переместить", transfer_done:"Товар перемещён",
   jami:"Всего", variety:"видов", cost_value:"Себестоимость", sale_value:"Продажа", filter_all:"Все", filter_store:"Магазин", filter_warehouse:"Склад",
@@ -596,6 +598,7 @@ en:{app_name:"Master ERP", app_tag:"ERP SYSTEM", login:"Sign in", register:"Regi
   csv_columns_hint:"Columns: name,model,unit,qty,cost,price", choose_file:"Choose file",
   xlsx_columns_hint:"Columns: Name | Model | Unit | Quantity | Cost | Cost currency | Price | Price currency", import_skipped:"rows skipped",
   xlsx_roll_hint:"For meter-based (roll) products, list multiple roll lengths separated by +: e.g. 32+45+18 (3 rolls of 32m, 45m, 18m)", xlsx_load_failed:"Couldn't load the Excel library - check your internet",
+  xprinter_hint:"Adapted for Xprinter (58/80mm). When printing, select the matching paper size (58mm or 80mm roll) in the system print dialog.",
   transfer_title:"Transfer between locations", transfer_product:"Select product", transfer_from:"From", transfer_to:"To",
   transfer_qty:"Quantity", transfer_roll_pick:"Select roll", transfer_btn:"Transfer", transfer_done:"Item transferred",
   jami:"Total", variety:"types", cost_value:"Cost value", sale_value:"Sale value", filter_all:"All", filter_store:"Store", filter_warehouse:"Warehouse",
@@ -648,7 +651,7 @@ function t(k){ return (STR[state.lang] && STR[state.lang][k]) || k; }
 
 /* ============ STATE ============ */
 const todayStr = ()=> new Date().toISOString().slice(0,10);
-const APP_VERSION = "2026-08-18-b"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
+const APP_VERSION = "2026-08-18-d"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
 let updateAvailable = false;
 let state = { lang:'uz', theme:'sapphire', session:null, page:'dashboard', partnerTab:'customers', currency:'uzs', dateFrom: todayStr(), dateTo: todayStr() };
 
@@ -2928,7 +2931,7 @@ function addToCart(data){
   }
   if(!price) return toast(t('fill_all'));
 
-  saleCart.push({ id:uid(), productId:product.id, productName:product.name, mode, rollId, qty, unit:product.unit, price, total:price*qty });
+  saleCart.push({ id:uid(), productId:product.id, productName:product.name, productModel:product.model||'', mode, rollId, qty, unit:product.unit, price, total:price*qty });
   saleForm.qty = 1; saleForm.box = 1; saleForm.price = 0;
   pushActiveCart(state.session.companyId);
   toast(t('saved'));
@@ -2988,7 +2991,7 @@ async function finalizeSale(data){
   const invoiceNo = nextInvoiceNo(data);
   const newSale = {
     id:uid(), invoiceNo, customer: saleForm.customer.trim(), region: saleForm.region, phone: saleForm.phone.trim(),
-    items: saleCart.map(i=>({productId:i.productId, productName:i.productName, qty:i.qty, unit:i.unit, price:i.price, total:i.total})),
+    items: saleCart.map(i=>({productId:i.productId, productName:i.productName, productModel:i.productModel||'', qty:i.qty, unit:i.unit, price:i.price, total:i.total})),
     total, naqdAmount, kartaAmount, nasiyaAmount, nasiyaPaidAmount:0, paid: nasiyaAmount<=0,
     date:new Date().toISOString().slice(0,10)
   };
@@ -3064,6 +3067,11 @@ function wrapMono(text, width){
   const lines = [];
   let line = '';
   text.split(' ').forEach(word=>{
+    while(word.length > width){ // juda uzun bitta so'zni ham majburan bo'lamiz - pastga tushib qolmasligi uchun
+      if(line){ lines.push(line); line=''; }
+      lines.push(word.slice(0,width));
+      word = word.slice(width);
+    }
     if((line+' '+word).trim().length > width){ lines.push(line.trim()); line = word; }
     else { line = (line+' '+word).trim(); }
   });
@@ -3071,9 +3079,11 @@ function wrapMono(text, width){
   return lines;
 }
 function buildReceiptHTML(companyName, cfg, sale, logo){
-  const W = cfg.size==='58mm' ? 32 : 42; // belgi soni (thermal printer standarti)
+  // Xprinter (ESC/POS standart) belgi kengligi: 58mm = 32 belgi, 80mm = 48 belgi (Font A, 12x24)
+  const W = cfg.size==='58mm' ? 32 : 48;
   const dashLine = '-'.repeat(W);
-  const boxW = cfg.size==='58mm' ? '280px' : '340px';
+  const boxW = cfg.size==='58mm' ? '260px' : '380px';
+  const fontSz = cfg.size==='58mm' ? '10px' : '11px';
   const centerLine = (s)=>{
     s = String(s);
     if(s.length>=W) return s;
@@ -3095,7 +3105,8 @@ function buildReceiptHTML(companyName, cfg, sale, logo){
   lines.push(padLR(t('item_col'), t('qty_col')+'   '+t('sum_col'), W));
   lines.push(dashLine);
   (sale.items||[]).forEach(i=>{
-    wrapMono(i.productName, W).forEach(l=>lines.push(l));
+    const itemLabel = i.productModel ? `${i.productName} (${i.productModel})` : i.productName;
+    wrapMono(itemLabel, W).forEach(l=>lines.push(l));
     const qtyStr = `${i.qty}${i.unit?i.unit:''}`;
     lines.push(padLR('  '+qtyStr, money(i.total), W));
   });
@@ -3107,7 +3118,7 @@ function buildReceiptHTML(companyName, cfg, sale, logo){
   const bodyText = lines.join('\n');
 
   const tgHtml = (cfg.showTelegram && cfg.telegramChannel) ? `
-    <div style="text-align:center; font-family:'IBM Plex Mono',monospace; font-size:${cfg.size==='58mm'?'10px':'11px'}; white-space:pre; font-weight:700; color:#000;">${dashLine}</div>
+    <div style="text-align:center; font-family:'IBM Plex Mono',monospace; font-size:${fontSz}; white-space:pre; font-weight:700; color:#000;">${dashLine}</div>
     <div style="text-align:center; margin:8px 0;"><img src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(cfg.telegramChannel)}" style="width:110px; height:110px; margin:0 auto; display:block;"></div>
     <div style="text-align:center; font-weight:800; font-size:12px; color:#000;">${t('tg_channel_banner')}</div>
     <div style="text-align:center; font-size:10px; color:#333; word-break:break-all;">${cfg.telegramChannel}</div>
@@ -3116,7 +3127,7 @@ function buildReceiptHTML(companyName, cfg, sale, logo){
   return `
     <div style="max-width:${boxW}; margin:0 auto; background:#fff; color:#000; padding:16px 14px; border-radius:6px;">
       ${logoHtml}
-      <pre style="font-family:'IBM Plex Mono',monospace; font-size:${cfg.size==='58mm'?'10.5px':'12px'}; font-weight:700; line-height:1.55; color:#000; white-space:pre-wrap; word-break:break-word; margin:0;">${bodyText}</pre>
+      <pre style="font-family:'IBM Plex Mono',monospace; font-size:${fontSz}; font-weight:700; line-height:1.5; color:#000; white-space:pre-wrap; word-break:break-word; margin:0;">${bodyText}</pre>
       ${tgHtml}
     </div>
   `;
@@ -3128,8 +3139,8 @@ function modalReceiptSettings(data){
   const sampleSale = {
     invoiceNo:'ORD-998', date:new Date().toLocaleDateString('uz-UZ').split('.').reverse().join('/'), cashier: state.session.fullName,
     items:[
-      { productName:'Kafel Marble', qty:20, unit:'m', total:1700000 },
-      { productName:'Parda Mato', qty:15, unit:'m', total:1125000 }
+      { productName:'Kafel Marble', productModel:'Premium 60x60', qty:20, unit:'m', total:1700000 },
+      { productName:'Parda Mato', productModel:'', qty:15, unit:'m', total:1125000 }
     ],
     total:2825000
   };
@@ -3144,10 +3155,11 @@ function modalReceiptSettings(data){
     </div>
 
     <label style="font-size:11px; color:var(--muted); font-weight:700; text-transform:uppercase; display:block; margin-bottom:6px;">${t('paper_width')}</label>
-    <div class="tabbar" style="margin-bottom:16px;">
+    <div class="tabbar" style="margin-bottom:10px;">
       <button type="button" data-rsize="80mm" class="rsize-btn ${cfg.size==='80mm'?'active':''}">80mm (${t('large')})</button>
       <button type="button" data-rsize="58mm" class="rsize-btn ${cfg.size==='58mm'?'active':''}">58mm (${t('small')})</button>
     </div>
+    <div style="font-size:11px; color:var(--accent-dim); background:rgba(62,155,255,0.08); border-radius:8px; padding:9px 11px; margin-bottom:16px;">🖨 ${t('xprinter_hint')}</div>
 
     <div class="field"><label>${t('company_address')}</label><input id="rs_address" value="${cfg.address}"></div>
     <div class="field"><label>${t('company_phones')}</label><input id="rs_phones" placeholder="+998 90 123 45 67" value="${(cfg.phones||[]).join(', ')}"></div>
@@ -3218,7 +3230,7 @@ function printReceipt(data, saleId){
   const cfg = Object.assign({ size:'80mm', address:'', phones:[], telegramChannel:'', showLogo:true, showPhone:true, showTelegram:false, thanksText:'' }, (data.settings&&data.settings.receipt)||{});
   const saleForReceipt = {
     invoiceNo: sale.invoiceNo, date: sale.date, cashier: state.session.fullName,
-    items: (sale.items||[]).map(i=>({ productName:i.productName, qty:i.qty, unit:i.unit, total:i.total })),
+    items: (sale.items||[]).map(i=>({ productName:i.productName, productModel:i.productModel||'', qty:i.qty, unit:i.unit, total:i.total })),
     total: sale.total
   };
   openModal(`
