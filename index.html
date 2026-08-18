@@ -669,7 +669,7 @@ function t(k){ return (STR[state.lang] && STR[state.lang][k]) || k; }
 
 /* ============ STATE ============ */
 const todayStr = ()=> new Date().toISOString().slice(0,10);
-const APP_VERSION = "2026-08-18-l"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
+const APP_VERSION = "2026-08-18-m"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
 let updateAvailable = false;
 let state = { lang:'uz', theme:'sapphire', session:null, page:'dashboard', partnerTab:'customers', currency:'uzs', dateFrom: todayStr(), dateTo: todayStr(), dashPeriod:'today' };
 
@@ -898,6 +898,17 @@ function loadHtml5Qrcode(){
 
 let activeHtml5Qr = null;
 async function openBarcodeScanner(onDetect){
+  let stopped = false;
+  let paused = false;
+
+  async function stopCamera(){
+    if(activeHtml5Qr){
+      try{ await activeHtml5Qr.stop(); }catch(e){}
+      try{ activeHtml5Qr.clear(); }catch(e){}
+      activeHtml5Qr = null;
+    }
+  }
+
   openModal(`
     <h3 style="margin-bottom:10px;">📷 ${t('scanner_title')}</h3>
     <div id="scanStatus" style="font-size:12.5px; color:var(--muted); margin-bottom:12px;">⏳ ${t('loading')}</div>
@@ -918,22 +929,16 @@ async function openBarcodeScanner(onDetect){
       </div>
     </div>
     <button class="btn-ghost" id="m_stop" style="width:100%; margin-top:14px;">✕ ${t('stop_scan')}</button>
-  `);
+  `, ()=>{ stopped = true; stopCamera(); }); // fon bosib yopilsa ham kamera kafolatlangan holda o'chadi
+
   const statusEl = document.getElementById('scanStatus');
   const manualInput = document.getElementById('manualBarcode2');
   setTimeout(()=>{ try{ manualInput.focus(); }catch(e){} }, 150);
 
-  let stopped = false;
-  let paused = false;
-
-  async function stopScan(){
+  function stopScan(){
     if(stopped) return;
     stopped = true;
-    if(activeHtml5Qr){
-      try{ await activeHtml5Qr.stop(); }catch(e){}
-      try{ activeHtml5Qr.clear(); }catch(e){}
-      activeHtml5Qr = null;
-    }
+    stopCamera();
     closeModal();
   }
   document.getElementById('m_stop').onclick = stopScan;
@@ -994,7 +999,8 @@ async function openBarcodeScanner(onDetect){
       },
       ()=>{ /* har bir kadrda kod topilmasa shu yerga tushadi - normal holat, e'tibor bermaymiz */ }
     );
-    if(!stopped){ statusEl.textContent = '🟢 ' + t('scanner_hint'); statusEl.style.color = 'var(--success)'; }
+    if(stopped){ stopCamera(); return; } // yopish so'ralgan payt kamera ulanib qolgan bo'lsa - darhol o'chiramiz
+    statusEl.textContent = '🟢 ' + t('scanner_hint'); statusEl.style.color = 'var(--success)';
   }catch(camErr){
     console.error('html5-qrcode start error', camErr);
     statusEl.innerHTML = `⚠️ ${t('camera_denied')}`;
@@ -1152,6 +1158,8 @@ async function loginUser(identifier, password){
 }
 
 async function logout(){
+  stopCartSync();
+  cartSyncActivePage = null;
   await sDel('session', false);
   state.session = null;
   state.page='dashboard';
@@ -2202,6 +2210,8 @@ async function modalResetChoice(data){
     await sDel('company_data:'+companyId, true);
     await sDel('session', false);
     closeModal();
+    stopCartSync();
+    cartSyncActivePage = null;
     state.session = null;
     state.page = 'dashboard';
     toast(t('reset_done'));
@@ -2934,18 +2944,21 @@ function renderSettings(data){
 
 /* ============ MODALS ============ */
 let modalStack = [];
-function openModal(html){
+function openModal(html, onClose){
   const bg = document.createElement('div');
   const myId = 'modalBg_' + uid();
   bg.className='modal-bg'; bg.id=myId;
   bg.innerHTML = `<div class="card modal">${html}</div>`;
   bg.onclick = (e)=>{ if(e.target===bg) closeModal(); };
   document.body.appendChild(bg);
-  modalStack.push(myId);
+  modalStack.push({ id:myId, onClose });
 }
 function closeModal(){
-  const id = modalStack.pop();
-  if(id){ const m=document.getElementById(id); if(m) m.remove(); }
+  const entry = modalStack.pop();
+  if(entry){
+    const m=document.getElementById(entry.id); if(m) m.remove();
+    if(entry.onClose){ try{ entry.onClose(); }catch(e){ console.error('modal onClose error', e); } }
+  }
 }
 
 /* ---- SALES CART LOGIC ---- */
