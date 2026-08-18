@@ -331,6 +331,7 @@ uz:{app_name:"Master ERP", app_tag:"ERP TIZIMI", login:"Kirish", register:"Ro'yx
   close_cash_register:"Kassani yopish", close_cash_hint:"Bugungi to'liq hisobot Telegram'ga yuboriladi.", close_cash_no_telegram:"Telegram ulanmagan - avval Sozlamalar'da ulang.",
   quick_scan:"Tezkor skaner", new_sale_btn:"Yangi sotuv",
   update_available:"Ilovaning yangi versiyasi mavjud!", update_available_hint:"Yangi funksiyalar tayyor. Yangilash uchun bosing.", update_now:"Yangilash",
+  app_version_label:"Ilova versiyasi", check_update:"Yangilanishni tekshirish", already_latest:"Eng so'nggi versiyadasiz", check_update_failed:"Tekshirib bo'lmadi - internetni tekshiring",
   send_and_close:"Yuborish va yopish",
   price_currency:"Narx valyutasi", approx:"taxminan", telegram_settings:"Telegram integratsiyasi", bot_token:"Bot Token", chat_id:"Chat ID",
   telegram_enabled_label:"Telegram xabarlarini yoqish", save_settings:"Saqlash", telegram_help:"Token — @BotFather, Chat ID — @userinfobot orqali.",
@@ -446,6 +447,7 @@ ru:{app_name:"Master ERP", app_tag:"ERP СИСТЕМА", login:"Войти", reg
   close_cash_register:"Закрыть кассу", close_cash_hint:"Полный отчёт за сегодня будет отправлен в Telegram.", close_cash_no_telegram:"Telegram не подключён - сначала подключите в Настройках.",
   quick_scan:"Быстрое сканирование", new_sale_btn:"Новая продажа",
   update_available:"Доступна новая версия приложения!", update_available_hint:"Новые функции готовы. Нажмите, чтобы обновить.", update_now:"Обновить",
+  app_version_label:"Версия приложения", check_update:"Проверить обновления", already_latest:"У вас последняя версия", check_update_failed:"Не удалось проверить - проверьте интернет",
   send_and_close:"Отправить и закрыть",
   price_currency:"Валюта цены", approx:"примерно", telegram_settings:"Интеграция с Telegram", bot_token:"Токен бота", chat_id:"Chat ID",
   telegram_enabled_label:"Включить уведомления Telegram", save_settings:"Сохранить", telegram_help:"Токен — @BotFather, Chat ID — @userinfobot.",
@@ -561,6 +563,7 @@ en:{app_name:"Master ERP", app_tag:"ERP SYSTEM", login:"Sign in", register:"Regi
   close_cash_register:"Close register", close_cash_hint:"Today's full report will be sent to Telegram.", close_cash_no_telegram:"Telegram not connected - connect it in Settings first.",
   quick_scan:"Quick scan", new_sale_btn:"New sale",
   update_available:"A new app version is available!", update_available_hint:"New features are ready. Tap to update.", update_now:"Update",
+  app_version_label:"App version", check_update:"Check for updates", already_latest:"You're on the latest version", check_update_failed:"Couldn't check - check your internet",
   send_and_close:"Send & close",
   price_currency:"Price currency", approx:"approx.", telegram_settings:"Telegram integration", bot_token:"Bot Token", chat_id:"Chat ID",
   telegram_enabled_label:"Enable Telegram notifications", save_settings:"Save", telegram_help:"Token via @BotFather, Chat ID via @userinfobot.",
@@ -628,24 +631,28 @@ function t(k){ return (STR[state.lang] && STR[state.lang][k]) || k; }
 
 /* ============ STATE ============ */
 const todayStr = ()=> new Date().toISOString().slice(0,10);
-const APP_VERSION = "2026-08-17-a"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
+const APP_VERSION = "2026-08-17-b"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
 let updateAvailable = false;
 let state = { lang:'uz', theme:'sapphire', session:null, page:'dashboard', partnerTab:'customers', currency:'uzs', dateFrom: todayStr(), dateTo: todayStr() };
 
 /* GitHub'ga yangi fayl yuklangandan keyin ba'zan brauzer/qurilma eski nusxani keshda saqlab qolishi mumkin.
    Shu sababli joriy sahifadagi versiyani jonli saytdagi versiya bilan solishtiramiz - agar farq bo'lsa,
    foydalanuvchiga "Yangi versiya bor" deb ko'rsatamiz. */
-async function checkForUpdate(){
+async function checkForUpdate(manual){
   try{
     const res = await fetch(window.location.pathname, { cache:'no-store' });
-    if(!res.ok) return;
+    if(!res.ok){ if(manual) toast('⚠️ ' + t('check_update_failed')); return; }
     const html = await res.text();
     const match = html.match(/APP_VERSION\s*=\s*"([^"]+)"/);
     if(match && match[1] && match[1] !== APP_VERSION){
       updateAvailable = true;
       if(state.page==='settings') render();
+    } else if(manual){
+      toast('✅ ' + t('already_latest'));
     }
-  }catch(e){ /* offline yoki tarmoq xatosi - jim o'tkazamiz */ }
+  }catch(e){
+    if(manual) toast('⚠️ ' + t('check_update_failed'));
+  }
 }
 function reloadForUpdate(){
   window.location.href = window.location.pathname + '?_v=' + Date.now();
@@ -2850,6 +2857,13 @@ function renderSettings(data){
       </div>` : ''}
 
       <div class="card" style="grid-column:1/-1;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+          <div style="font-size:11.5px; color:var(--muted);">${t('app_version_label')}: <span class="mono">${APP_VERSION}</span></div>
+          <button class="btn-ghost btn-sm" id="btnCheckUpdate">🔄 ${t('check_update')}</button>
+        </div>
+      </div>
+
+      <div class="card" style="grid-column:1/-1;">
         <button class="btn-ghost" id="settingsLogoutBtn" style="width:100%; padding:13px; color:var(--danger); border-color:rgba(226,59,84,0.35);">↩ ${t('logout')}</button>
       </div>
     </div>
@@ -3977,6 +3991,8 @@ function bindShellEvents(data){
     if(btnOpenReceiptSettings) btnOpenReceiptSettings.onclick = ()=>modalReceiptSettings(data);
     const btnDoUpdate = document.getElementById('btnDoUpdate');
     if(btnDoUpdate) btnDoUpdate.onclick = reloadForUpdate;
+    const btnCheckUpdate = document.getElementById('btnCheckUpdate');
+    if(btnCheckUpdate) btnCheckUpdate.onclick = ()=>checkForUpdate(true);
     const btnUploadLogo = document.getElementById('btnUploadLogo');
     if(btnUploadLogo) btnUploadLogo.onclick = ()=> document.getElementById('logoFile').click();
     const logoFile = document.getElementById('logoFile');
