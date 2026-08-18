@@ -260,6 +260,17 @@ tr:hover td{background:rgba(255,255,255,0.02);}
   th,td{padding:5px 4px;}
   .page-title{font-size:16px;}
 }
+@media print{
+  /* Chop etilganda FAQAT chekning o'zi chiqsin - sidebar, tugmalar, fon va boshqa hamma narsa yashirinsin */
+  body *{ visibility:hidden; }
+  .receipt-print-area, .receipt-print-area *{ visibility:visible; }
+  .receipt-print-area{
+    position:absolute; left:0; top:0; width:100%; max-height:none !important; overflow:visible !important;
+  }
+  .receipt-print-area pre{ color:#000 !important; font-weight:700 !important; }
+  .no-print{ display:none !important; }
+  @page{ margin:4mm; }
+}
 </style>
 <script>
   window.__sbReadyPromise = new Promise((resolve)=>{ window.__sbReadyResolve = resolve; });
@@ -347,6 +358,8 @@ uz:{app_name:"Master ERP", app_tag:"ERP TIZIMI", login:"Kirish", register:"Ro'yx
   min_stock:"Min qoldiq", rolls_m:"Rulonlar (m)", roll_len_ph2:"Rulon uzunligi (m)...", total_qty:"Jami miqdor",
   cost_currency:"Tannarx valyutasi", import_file:"Import", import_products_title:"Tovarlarni CSV orqali import qilish",
   csv_columns_hint:"Ustunlar: nomi,modeli,birlik,soni,tannarx,narx", choose_file:"Faylni tanlang",
+  xlsx_columns_hint:"Ustunlar: Nomi | Modeli | Birligi | Miqdor | Tannarx | Tannarx valyutasi | Narx | Narx valyutasi", import_skipped:"qator o'tkazib yuborildi",
+  xlsx_roll_hint:"Metr birligida (rulon) tovarlar uchun Miqdor ustuniga bir nechta rulon uzunligini + belgisi bilan yozing: masalan 32+45+18 (3 ta rulon, mos ravishda 32m, 45m, 18m)", xlsx_load_failed:"Excel kutubxonasini yuklab bo'lmadi - internetni tekshiring",
   transfer_title:"Omborlar orasida o'tkazish", transfer_product:"Tovarni tanlang", transfer_from:"Qayerdan", transfer_to:"Qayerga",
   transfer_qty:"Miqdor", transfer_roll_pick:"Rulonni tanlang", transfer_btn:"O'tkazish", transfer_done:"Tovar o'tkazildi",
   jami:"Jami", variety:"xil", cost_value:"Tannarx", sale_value:"Sotish", filter_all:"Barchasi", filter_store:"Do'kon", filter_warehouse:"Ombor",
@@ -463,6 +476,8 @@ ru:{app_name:"Master ERP", app_tag:"ERP СИСТЕМА", login:"Войти", reg
   min_stock:"Мин. остаток", rolls_m:"Рулоны (м)", roll_len_ph2:"Длина рулона (м)...", total_qty:"Итого",
   cost_currency:"Валюта себестоимости", import_file:"Импорт", import_products_title:"Импорт товаров через CSV",
   csv_columns_hint:"Столбцы: название,модель,ед.изм,кол-во,себестоимость,цена", choose_file:"Выберите файл",
+  xlsx_columns_hint:"Столбцы: Название | Модель | Ед.изм | Количество | Себестоимость | Валюта себест. | Цена | Валюта цены", import_skipped:"строк пропущено",
+  xlsx_roll_hint:"Для товаров в метрах (рулоны) укажите несколько длин через +: например 32+45+18 (3 рулона по 32м, 45м, 18м)", xlsx_load_failed:"Не удалось загрузить библиотеку Excel - проверьте интернет",
   transfer_title:"Перемещение между складами", transfer_product:"Выберите товар", transfer_from:"Откуда", transfer_to:"Куда",
   transfer_qty:"Количество", transfer_roll_pick:"Выберите рулон", transfer_btn:"Переместить", transfer_done:"Товар перемещён",
   jami:"Всего", variety:"видов", cost_value:"Себестоимость", sale_value:"Продажа", filter_all:"Все", filter_store:"Магазин", filter_warehouse:"Склад",
@@ -579,6 +594,8 @@ en:{app_name:"Master ERP", app_tag:"ERP SYSTEM", login:"Sign in", register:"Regi
   min_stock:"Min stock", rolls_m:"Rolls (m)", roll_len_ph2:"Roll length (m)...", total_qty:"Total",
   cost_currency:"Cost currency", import_file:"Import", import_products_title:"Import products via CSV",
   csv_columns_hint:"Columns: name,model,unit,qty,cost,price", choose_file:"Choose file",
+  xlsx_columns_hint:"Columns: Name | Model | Unit | Quantity | Cost | Cost currency | Price | Price currency", import_skipped:"rows skipped",
+  xlsx_roll_hint:"For meter-based (roll) products, list multiple roll lengths separated by +: e.g. 32+45+18 (3 rolls of 32m, 45m, 18m)", xlsx_load_failed:"Couldn't load the Excel library - check your internet",
   transfer_title:"Transfer between locations", transfer_product:"Select product", transfer_from:"From", transfer_to:"To",
   transfer_qty:"Quantity", transfer_roll_pick:"Select roll", transfer_btn:"Transfer", transfer_done:"Item transferred",
   jami:"Total", variety:"types", cost_value:"Cost value", sale_value:"Sale value", filter_all:"All", filter_store:"Store", filter_warehouse:"Warehouse",
@@ -631,7 +648,7 @@ function t(k){ return (STR[state.lang] && STR[state.lang][k]) || k; }
 
 /* ============ STATE ============ */
 const todayStr = ()=> new Date().toISOString().slice(0,10);
-const APP_VERSION = "2026-08-17-b"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
+const APP_VERSION = "2026-08-18-b"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
 let updateAvailable = false;
 let state = { lang:'uz', theme:'sapphire', session:null, page:'dashboard', partnerTab:'customers', currency:'uzs', dateFrom: todayStr(), dateTo: todayStr() };
 
@@ -3034,44 +3051,72 @@ async function returnSale(data, saleId){
 }
 
 /* Chekning HTML ko'rinishini quradi - haqiqiy chek va Sozlamalardagi jonli oldindan ko'rish uchun umumiy ishlatiladi */
+/* Chek matnini haqiqiy chek-printer uslubida - belgi-kenglikka asoslangan (fixed-width monospace) - quradi.
+   Bu flex/CSS box-model'ga qaraganda ancha ishonchli: tor qog'ozda chop etishda hech qachon so'zlar
+   ustma-ust tushmaydi yoki joylashuvi buzilmaydi, chunki har bir qator aniq belgi sonidan iborat matn. */
+function padLR(left, right, width){
+  left = String(left); right = String(right);
+  const gap = Math.max(1, width - left.length - right.length);
+  return left + ' '.repeat(gap) + right;
+}
+function wrapMono(text, width){
+  text = String(text);
+  const lines = [];
+  let line = '';
+  text.split(' ').forEach(word=>{
+    if((line+' '+word).trim().length > width){ lines.push(line.trim()); line = word; }
+    else { line = (line+' '+word).trim(); }
+  });
+  if(line) lines.push(line);
+  return lines;
+}
 function buildReceiptHTML(companyName, cfg, sale, logo){
-  const widthMap = { '58mm':'260px', '80mm':'320px' };
-  const maxW = widthMap[cfg.size] || '320px';
-  const dash = `<div style="border-top:2px dashed #000; margin:10px 0;"></div>`;
+  const W = cfg.size==='58mm' ? 32 : 42; // belgi soni (thermal printer standarti)
+  const dashLine = '-'.repeat(W);
+  const boxW = cfg.size==='58mm' ? '280px' : '340px';
+  const centerLine = (s)=>{
+    s = String(s);
+    if(s.length>=W) return s;
+    const pad = Math.floor((W-s.length)/2);
+    return ' '.repeat(pad)+s;
+  };
+
   const logoHtml = (cfg.showLogo!==false && logo) ? `<img src="${logo}" style="width:44px; height:44px; border-radius:10px; object-fit:cover; margin:0 auto 8px; display:block;">` : '';
-  const addressHtml = (cfg.address) ? `<div style="text-align:center; font-size:11.5px; color:#333;">${cfg.address}</div>` : '';
-  const phonesHtml = (cfg.showPhone!==false && cfg.phones && cfg.phones.length) ? `<div style="text-align:center; font-size:11.5px; color:#333;">Tel: ${cfg.phones.join(', ')}</div>` : '';
+
+  let lines = [];
+  lines.push(centerLine((companyName||'').toUpperCase()));
+  if(cfg.address) wrapMono(cfg.address, W).forEach(l=>lines.push(centerLine(l)));
+  if(cfg.showPhone!==false && cfg.phones && cfg.phones.length) lines.push(centerLine('Tel: '+cfg.phones.join(', ')));
+  lines.push(dashLine);
+  lines.push(padLR(t('receipt_no')+':', '#'+(sale.invoiceNo||''), W));
+  lines.push(padLR(t('date')+':', sale.date||'', W));
+  lines.push(padLR(t('cashier')+':', sale.cashier||'', W));
+  lines.push(dashLine);
+  lines.push(padLR(t('item_col'), t('qty_col')+'   '+t('sum_col'), W));
+  lines.push(dashLine);
+  (sale.items||[]).forEach(i=>{
+    wrapMono(i.productName, W).forEach(l=>lines.push(l));
+    const qtyStr = `${i.qty}${i.unit?i.unit:''}`;
+    lines.push(padLR('  '+qtyStr, money(i.total), W));
+  });
+  lines.push(dashLine);
+  lines.push(padLR(t('grand_total_label')+':', money(sale.total)+' UZS', W));
+  lines.push(dashLine);
+  wrapMono(cfg.thanksText || t('thanks'), W).forEach(l=>lines.push(centerLine(l)));
+
+  const bodyText = lines.join('\n');
+
   const tgHtml = (cfg.showTelegram && cfg.telegramChannel) ? `
-    ${dash}
-    <div style="text-align:center; margin:6px 0;"><img src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(cfg.telegramChannel)}" style="width:110px; height:110px; margin:0 auto; display:block;"></div>
+    <div style="text-align:center; font-family:'IBM Plex Mono',monospace; font-size:${cfg.size==='58mm'?'10px':'11px'}; white-space:pre; font-weight:700; color:#000;">${dashLine}</div>
+    <div style="text-align:center; margin:8px 0;"><img src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(cfg.telegramChannel)}" style="width:110px; height:110px; margin:0 auto; display:block;"></div>
     <div style="text-align:center; font-weight:800; font-size:12px; color:#000;">${t('tg_channel_banner')}</div>
     <div style="text-align:center; font-size:10px; color:#333; word-break:break-all;">${cfg.telegramChannel}</div>
   ` : '';
 
   return `
-    <div style="max-width:${maxW}; margin:0 auto; font-family:'IBM Plex Mono',monospace; background:#fff; color:#000; padding:18px 16px; border-radius:6px;">
+    <div style="max-width:${boxW}; margin:0 auto; background:#fff; color:#000; padding:16px 14px; border-radius:6px;">
       ${logoHtml}
-      <div style="text-align:center; font-weight:800; font-size:16px; letter-spacing:.5px;">${(companyName||'').toUpperCase()}</div>
-      ${addressHtml}
-      ${phonesHtml}
-      ${dash}
-      <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:700;"><span>${t('receipt_no')}:</span><span>#${sale.invoiceNo||''}</span></div>
-      <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:700; margin-top:3px;"><span>${t('date')}:</span><span>${sale.date||''}</span></div>
-      <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:700; margin-top:3px;"><span>${t('cashier')}:</span><span>${sale.cashier||''}</span></div>
-      ${dash}
-      <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:800; border-bottom:1.5px solid #000; padding-bottom:4px;">
-        <span style="flex:2;">${t('item_col')}</span><span style="flex:1; text-align:center;">${t('qty_col')}</span><span style="flex:1; text-align:right;">${t('sum_col')}</span>
-      </div>
-      ${(sale.items||[]).map(i=>`
-        <div style="display:flex; justify-content:space-between; font-size:12.5px; font-weight:700; padding:7px 0; border-bottom:1px solid #ddd;">
-          <span style="flex:2;">${i.productName}</span><span style="flex:1; text-align:center;">${i.qty}${i.unit?' '+i.unit:''}</span><span style="flex:1; text-align:right;">${money(i.total)}</span>
-        </div>`).join('')}
-      ${dash}
-      <div style="display:flex; justify-content:space-between; font-weight:800; font-size:16px;">
-        <span>${t('grand_total_label')}:</span><span>${money(sale.total)} UZS</span>
-      </div>
-      ${dash}
-      <div style="text-align:center; font-weight:700; font-size:12.5px;">${cfg.thanksText || t('thanks')}</div>
+      <pre style="font-family:'IBM Plex Mono',monospace; font-size:${cfg.size==='58mm'?'10.5px':'12px'}; font-weight:700; line-height:1.55; color:#000; white-space:pre-wrap; word-break:break-word; margin:0;">${bodyText}</pre>
       ${tgHtml}
     </div>
   `;
@@ -3124,7 +3169,7 @@ function modalReceiptSettings(data){
 
     <div style="text-align:center; font-size:11px; color:var(--accent-dim); font-weight:800; text-transform:uppercase; margin-bottom:8px;">👁 ${t('live_preview')}</div>
     <div style="background:var(--panel2); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:16px; overflow:auto;">
-      <div id="receiptPreview"></div>
+      <div id="receiptPreview" class="receipt-print-area"></div>
     </div>
 
     <button class="btn-3d" id="rs_testprint" style="width:100%; margin-bottom:10px;">🖨 ${t('test_print')}</button>
@@ -3177,9 +3222,9 @@ function printReceipt(data, saleId){
     total: sale.total
   };
   openModal(`
-    <div style="overflow:auto; max-height:65vh;">${buildReceiptHTML(state.session.companyName, cfg, saleForReceipt, data.settings&&data.settings.logo)}</div>
-    <button class="btn-3d" id="m_cancel" style="width:100%; margin-top:14px;">${t('close')}</button>
-    <button class="btn-ghost" id="m_print" style="width:100%; margin-top:8px;">🖨 ${t('print_receipt')}</button>
+    <div class="receipt-print-area" style="overflow:auto; max-height:65vh;">${buildReceiptHTML(state.session.companyName, cfg, saleForReceipt, data.settings&&data.settings.logo)}</div>
+    <button class="btn-3d no-print" id="m_cancel" style="width:100%; margin-top:14px;">${t('close')}</button>
+    <button class="btn-ghost no-print" id="m_print" style="width:100%; margin-top:8px;">🖨 ${t('print_receipt')}</button>
   `);
   document.getElementById('m_cancel').onclick = closeModal;
   document.getElementById('m_print').onclick = ()=>window.print();
@@ -3501,57 +3546,126 @@ async function modalAddProduct(data){
   };
 }
 /* ---- CSV IMPORT ---- */
+/* SheetJS (xlsx) kutubxonasi - Excel fayllarni brauzerda o'qish/yozish uchun */
+let xlsxLoadPromise = null;
+function loadXLSX(){
+  if(window.XLSX) return Promise.resolve(true);
+  if(xlsxLoadPromise) return xlsxLoadPromise;
+  xlsxLoadPromise = new Promise((resolve)=>{
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    script.onload = ()=> resolve(!!window.XLSX);
+    script.onerror = ()=> resolve(false);
+    document.head.appendChild(script);
+    setTimeout(()=> resolve(!!window.XLSX), 6000);
+  });
+  return xlsxLoadPromise;
+}
+
 function openImportModal(data){
   openModal(`
     <h3 style="margin-bottom:10px;">📤 ${t('import_products_title')}</h3>
-    <div style="font-size:12px; color:var(--muted); margin-bottom:12px;">${t('csv_columns_hint')}</div>
+    <div style="font-size:12px; color:var(--muted); margin-bottom:12px; white-space:pre-line;">${t('xlsx_columns_hint')}</div>
+    <div style="background:rgba(62,155,255,0.08); border:1px solid var(--border); border-radius:10px; padding:10px 12px; margin-bottom:14px; font-size:11.5px; color:var(--accent-dim);">💡 ${t('xlsx_roll_hint')}</div>
     <button type="button" class="btn-ghost btn-sm" id="btnDownloadTemplate" style="margin-bottom:14px;">⬇ ${t('download_template')}</button>
-    <div class="field">
-      <input type="file" id="csvFile" accept=".csv,text/csv">
+    <div class="field"><label>${t('incoming_dest')}</label>
+      <div class="tabbar" style="max-width:280px; margin-bottom:0;">
+        <button type="button" data-impdest="store" class="impdest-btn active">🏬 ${t('filter_store')}</button>
+        <button type="button" data-impdest="warehouse" class="impdest-btn">🏭 ${t('filter_warehouse')}</button>
+      </div>
     </div>
+    <div class="field" style="margin-top:14px;">
+      <input type="file" id="xlsxFile" accept=".xlsx,.xls,.csv">
+    </div>
+    <div id="importStatus" style="font-size:12px; color:var(--muted);"></div>
     <div style="display:flex; gap:10px; margin-top:10px;">
       <button class="btn-3d" id="m_import" style="flex:1;">📤 ${t('import_file')}</button>
       <button class="btn-ghost" id="m_cancel" style="flex:1;">${t('cancel')}</button>
     </div>
   `);
-  document.getElementById('btnDownloadTemplate').onclick = ()=>{
-    const csvContent = "nomi,modeli,birlik,soni,tannarx,narx\nGilam Silk,Classic 3x4,dona,10,450000,650000\nMato Rulon,Premium,metr,50,25000,38000\n";
-    const blob = new Blob([csvContent], { type:'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'tovarlar_namuna.csv';
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  let importDest = 'store';
+  document.querySelectorAll('.impdest-btn').forEach(b=>{
+    b.onclick = ()=>{ importDest=b.dataset.impdest; document.querySelectorAll('.impdest-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); };
+  });
+
+  document.getElementById('btnDownloadTemplate').onclick = async ()=>{
+    const ok = await loadXLSX();
+    if(!ok){ toast(t('xlsx_load_failed')); return; }
+    const rows = [
+      ['Nomi','Modeli','Birligi','Miqdor (dona/kg/qop uchun son, metr uchun rulonlarni + bilan yozing: 32+45+18)','Tannarx','Tannarx valyutasi (UZS/USD)','Narx','Narx valyutasi (UZS/USD)'],
+      ['Gilam Silk','Classic 3x4','dona',10,450000,'UZS',650000,'UZS'],
+      ['Mato Rulon','Premium','metr','32+45+18',3,'USD',5,'USD'],
+      ['Sement','','qop',25,45000,'UZS',60000,'UZS']
+    ];
+    const ws = window.XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:18},{wch:16},{wch:10},{wch:44},{wch:12},{wch:20},{wch:12},{wch:18}];
+    const wb = window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(wb, ws, 'Tovarlar');
+    window.XLSX.writeFile(wb, 'tovarlar_namuna.xlsx');
   };
   document.getElementById('m_cancel').onclick = closeModal;
-  document.getElementById('m_import').onclick = ()=>{
-    const file = document.getElementById('csvFile').files[0];
+  document.getElementById('m_import').onclick = async ()=>{
+    const file = document.getElementById('xlsxFile').files[0];
     if(!file) return toast(t('fill_all'));
+    const statusEl = document.getElementById('importStatus');
+    statusEl.textContent = '⏳ ' + t('loading');
+    const ok = await loadXLSX();
+    if(!ok){ statusEl.textContent = ''; toast(t('xlsx_load_failed')); return; }
     const reader = new FileReader();
     reader.onload = async ()=>{
       try{
-        const text = reader.result;
-        const lines = text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
-        let count = 0;
-        lines.forEach(line=>{
-          const cols = line.split(',').map(c=>c.trim());
-          if(cols[0] && cols[0].toLowerCase()==='nomi') return; // header row skip
-          const [name, model, unit, stock, cost, price] = cols;
-          if(!name || isNaN(Number(price))) return;
-          data.products.push({
-            id:uid(), name, model:model||'', unit: unit||'dona', barcode: genBarcode(), minStock:3,
-            cost:Number(cost)||0, costCurrency:'uzs', price:Number(price)||0, priceCurrency:'uzs',
-            rollMode:false, image:'', stock:Number(stock)||0, rolls:[], wStock:0, wRolls:[]
-          });
+        const wb = window.XLSX.read(reader.result, { type:'array' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = window.XLSX.utils.sheet_to_json(sheet, { header:1, raw:true, defval:'' });
+        let count = 0, skipped = 0;
+        rows.forEach((row, idx)=>{
+          if(idx===0) return; // sarlavha qatorini o'tkazib yuboramiz
+          const name = String(row[0]||'').trim();
+          if(!name) return;
+          const model = String(row[1]||'').trim();
+          let unit = String(row[2]||'dona').trim().toLowerCase();
+          if(!['dona','metr','qop','kg','litr'].includes(unit)) unit = 'dona';
+          const qtyRaw = String(row[3]!==undefined ? row[3] : '').trim();
+          const costCur = String(row[5]||'uzs').trim().toLowerCase()==='usd' ? 'usd' : 'uzs';
+          const priceCur = String(row[7]||'uzs').trim().toLowerCase()==='usd' ? 'usd' : 'uzs';
+          const cost = Number(row[4])||0;
+          const price = Number(row[6])||0;
+          if(!price && !cost){ skipped++; return; }
+
+          const isRoll = unit==='metr';
+          let rolls = [];
+          let totalQty = 0;
+          if(isRoll){
+            rolls = qtyRaw.split('+').map(s=>Number(String(s).trim())).filter(n=>!isNaN(n) && n>0).map(len=>({id:uid(), length:len}));
+            totalQty = rolls.reduce((s,r)=>s+r.length,0);
+          } else {
+            totalQty = Number(qtyRaw)||0;
+          }
+
+          const product = {
+            id:uid(), name, model, unit, barcode:genBarcode(), minStock:3,
+            cost, costCurrency:costCur, price, priceCurrency:priceCur,
+            rollMode:isRoll, image:'',
+            stock:0, rolls:[], wStock:0, wRolls:[]
+          };
+          if(importDest==='store'){
+            if(isRoll){ product.rolls = rolls; product.stock = totalQty; }
+            else { product.stock = totalQty; }
+          } else {
+            if(isRoll){ product.wRolls = rolls; product.wStock = totalQty; }
+            else { product.wStock = totalQty; }
+          }
+          data.products.push(product);
           count++;
         });
-        await saveCompanyData(state.session.companyId, data);
+        const saved = await saveCompanyData(state.session.companyId, data);
+        if(!saved) return;
         closeModal();
-        toast(t('import_success').replace('{n}', count));
+        toast(t('import_success').replace('{n}', count) + (skipped ? ` (${skipped} ${t('import_skipped')})` : ''));
         render();
-      }catch(e){ toast(t('import_failed')); }
+      }catch(e){ console.error('import error', e); statusEl.textContent=''; toast(t('import_failed')); }
     };
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
   };
 }
 
