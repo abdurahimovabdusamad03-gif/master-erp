@@ -654,7 +654,7 @@ function t(k){ return (STR[state.lang] && STR[state.lang][k]) || k; }
 
 /* ============ STATE ============ */
 const todayStr = ()=> new Date().toISOString().slice(0,10);
-const APP_VERSION = "2026-08-18-f"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
+const APP_VERSION = "2026-08-18-g"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
 let updateAvailable = false;
 let state = { lang:'uz', theme:'sapphire', session:null, page:'dashboard', partnerTab:'customers', currency:'uzs', dateFrom: todayStr(), dateTo: todayStr() };
 
@@ -1867,11 +1867,11 @@ function renderWarehouse(data){
           </div>
           <div style="flex:1; min-width:0;">
             <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-              <span style="font-weight:800; font-size:15px;">${p.name}</span>
+              <span style="font-weight:800; font-size:18px;">${p.name}</span>
               <span class="badge badge-accent">${p.unit}</span>
               ${isLow ? `<span class="badge" style="background:rgba(226,59,84,0.14); color:var(--danger);">⚠ ${t('low_stock')}</span>` : ''}
             </div>
-            ${p.model ? `<div style="font-size:12px; color:var(--muted); margin-top:2px;">${p.model}</div>` : ''}
+            ${p.model ? `<div style="font-size:14.5px; font-weight:700; color:var(--accent-dim); margin-top:2px;">${p.model}</div>` : ''}
             ${p.barcode ? `<div style="font-size:11px; color:var(--muted); margin-top:2px;" class="mono">▤ ${p.barcode}</div>` : ''}
           </div>
           <div>${locBadge}</div>
@@ -3330,8 +3330,8 @@ async function modalViewProduct(data, productId){
         ${p.image ? `<img src="${p.image}" style="width:100%; height:100%; object-fit:cover;">` : '📦'}
       </div>
       <div>
-        <h3 style="font-size:17px;">${p.name}</h3>
-        ${p.model ? `<div style="font-size:12px; color:var(--muted);">${p.model}</div>` : ''}
+        <h3 style="font-size:20px;">${p.name}</h3>
+        ${p.model ? `<div style="font-size:15px; font-weight:700; color:var(--accent-dim);">${p.model}</div>` : ''}
       </div>
     </div>
     <div class="field"><label>${t('product_name')}</label><input id="ep_name" value="${p.name}"></div>
@@ -3728,8 +3728,9 @@ async function modalRestockQty(data, prod){
         ${prod.image ? `<img src="${prod.image}" style="width:100%; height:100%; object-fit:cover;">` : '📦'}
       </div>
       <div>
-        <div style="font-weight:800; font-size:15px;">${prod.name}</div>
-        <div style="font-size:11.5px; color:var(--muted);">🏭 ${totals.whQty}${prod.unit} · 🏬 ${totals.storeQty}${prod.unit}</div>
+        <div style="font-weight:800; font-size:18px;">${prod.name}</div>
+        ${prod.model ? `<div style="font-size:14px; font-weight:700; color:var(--accent-dim);">${prod.model}</div>` : ''}
+        <div style="font-size:11.5px; color:var(--muted); margin-top:2px;">🏭 ${totals.whQty}${prod.unit} · 🏬 ${totals.storeQty}${prod.unit}</div>
       </div>
     </div>
     <div class="field"><label>${t('incoming_dest')}</label>
@@ -3794,7 +3795,7 @@ function openTransferModal(data){
   openModal(`
     <h3 style="margin-bottom:16px;">⇄ ${t('transfer_title')}</h3>
     <div class="field"><label>${t('transfer_product')}</label>
-      <select id="tr_product">${data.products.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}</select>
+      <select id="tr_product">${data.products.map(p=>`<option value="${p.id}">${p.name}${p.model?' — '+p.model:''}</option>`).join('')}</select>
     </div>
     <div class="tabbar" style="max-width:320px; margin-bottom:14px;">
       <button type="button" data-dir="w2s" class="active">${t('filter_warehouse')} → ${t('filter_store')}</button>
