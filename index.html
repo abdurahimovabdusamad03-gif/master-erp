@@ -313,6 +313,7 @@ uz:{app_name:"Master ERP", app_tag:"ERP TIZIMI", login:"Kirish", register:"Ro'yx
   sof_foyda:"Sof Foyda (Xarajatlar chegirilgan)", rasxodlar_tarixi:"Rasxodlar tarixi", add_expense:"Qo'shish",
   expense_name:"Nomi", category:"Kategoriya", payment_type:"To'lov turi", currency_som:"SO'M (UZS)", currency_usd:"DOLLAR ($)",
   today:"Bugun", daily_chart:"Kunlik Savdo Diagrammasi", chart_sub:"Tanlangan oraliq uchun tahlil", total_sales_count:"Jami Savdolar",
+  this_week:"Bu hafta", this_month:"Bu oy",
   top_products:"Eng Sotilgan Tovarlar", see_all:"Barchasi", sold_label:"Sotildi",
   debtor_customers:"Nasiyachi Mijozlar Ro'yxati", no_debtors:"Qarzdor mijozlar yo'q", mark_paid:"To'landi",
   cost_price:"Tannarx (ixtiyoriy)", empty_expenses:"Rasxodlar yo'q", from:"Dan", to:"Gacha", debt:"Qarz",
@@ -437,6 +438,7 @@ ru:{app_name:"Master ERP", app_tag:"ERP СИСТЕМА", login:"Войти", reg
   sof_foyda:"Чистая прибыль (за вычетом расходов)", rasxodlar_tarixi:"История расходов", add_expense:"Добавить",
   expense_name:"Название", category:"Категория", payment_type:"Тип оплаты", currency_som:"СУМ (UZS)", currency_usd:"ДОЛЛАР ($)",
   today:"Сегодня", daily_chart:"График продаж за день", chart_sub:"Анализ за выбранный период", total_sales_count:"Всего продаж",
+  this_week:"Эта неделя", this_month:"Этот месяц",
   top_products:"Топ продаж", see_all:"Все", sold_label:"Продано",
   debtor_customers:"Должники", no_debtors:"Должников нет", mark_paid:"Оплачено",
   cost_price:"Себестоимость (необязательно)", empty_expenses:"Расходов нет", from:"С", to:"По", debt:"Долг",
@@ -561,6 +563,7 @@ en:{app_name:"Master ERP", app_tag:"ERP SYSTEM", login:"Sign in", register:"Regi
   sof_foyda:"Net profit (after expenses)", rasxodlar_tarixi:"Expense history", add_expense:"Add",
   expense_name:"Name", category:"Category", payment_type:"Payment type", currency_som:"SOM (UZS)", currency_usd:"DOLLAR ($)",
   today:"Today", daily_chart:"Daily Sales Chart", chart_sub:"Analysis for selected period", total_sales_count:"Total Sales",
+  this_week:"This week", this_month:"This month",
   top_products:"Top Selling Products", see_all:"See all", sold_label:"Sold",
   debtor_customers:"Customers With Debt", no_debtors:"No debtors", mark_paid:"Mark paid",
   cost_price:"Cost price (optional)", empty_expenses:"No expenses yet", from:"From", to:"To", debt:"Debt",
@@ -666,9 +669,9 @@ function t(k){ return (STR[state.lang] && STR[state.lang][k]) || k; }
 
 /* ============ STATE ============ */
 const todayStr = ()=> new Date().toISOString().slice(0,10);
-const APP_VERSION = "2026-08-18-k"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
+const APP_VERSION = "2026-08-18-l"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
 let updateAvailable = false;
-let state = { lang:'uz', theme:'sapphire', session:null, page:'dashboard', partnerTab:'customers', currency:'uzs', dateFrom: todayStr(), dateTo: todayStr() };
+let state = { lang:'uz', theme:'sapphire', session:null, page:'dashboard', partnerTab:'customers', currency:'uzs', dateFrom: todayStr(), dateTo: todayStr(), dashPeriod:'today' };
 
 /* GitHub'ga yangi fayl yuklangandan keyin ba'zan brauzer/qurilma eski nusxani keshda saqlab qolishi mumkin.
    Shu sababli joriy sahifadagi versiyani jonli saytdagi versiya bilan solishtiramiz - agar farq bo'lsa,
@@ -1345,11 +1348,11 @@ async function renderShell(data){
     </div>
     <div class="main">
       <div class="topbar">
-        <div style="display:flex; align-items:center; gap:10px;">
-          ${data.settings && data.settings.logo ? `<img src="${data.settings.logo}" style="width:32px; height:32px; border-radius:8px; object-fit:cover; border:1px solid var(--border);">` : ''}
-          <div>
-            <div style="font-weight:800; font-size:14.5px;">${state.session.companyName}</div>
-            <div style="font-size:11.5px; color:var(--muted);">${state.session.fullName} · ${t(state.session.role==='admin'?'role_admin':'role_employee')}</div>
+        <div style="display:flex; align-items:center; gap:12px; margin:0 auto;">
+          ${data.settings && data.settings.logo ? `<img src="${data.settings.logo}" style="width:46px; height:46px; border-radius:11px; object-fit:cover; border:1px solid var(--border); flex-shrink:0;">` : ''}
+          <div style="text-align:center;">
+            <div style="font-weight:800; font-size:19px;">${state.session.companyName}</div>
+            <div style="font-size:12px; color:var(--muted);">${state.session.fullName} · ${t(state.session.role==='admin'?'role_admin':'role_employee')}</div>
           </div>
         </div>
       </div>
@@ -1430,12 +1433,12 @@ function renderDashboard(data){
     <div class="page-title">${t('dashboard')}</div>
     <div class="page-sub">${t('welcome')}, ${state.session.fullName}</div>
 
-    <div class="card" style="margin-bottom:12px; background:linear-gradient(135deg,#1B5FC4,#3E9BFF); border:none; padding:10px 12px;">
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
-        <div style="color:#fff; font-weight:700; font-size:11.5px; white-space:nowrap;">💲 1$ =</div>
-        <input id="fxRateInput" type="number" min="1" value="${FX_RATE}" style="width:88px; background:rgba(255,255,255,0.92); border:none; font-weight:800; text-align:center; padding:6px 8px; font-size:12.5px; border-radius:7px;">
-        <span style="color:#fff; font-weight:700; font-size:11.5px;">UZS</span>
-        <button class="btn-ghost btn-sm" id="btnSaveFxRate" style="background:#fff; padding:6px 10px;">✓</button>
+    <div class="card" style="margin-bottom:12px; background:linear-gradient(135deg,#1B5FC4,#3E9BFF); border:none; padding:7px 10px; width:50%; min-width:220px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
+        <div style="color:#fff; font-weight:700; font-size:10px; white-space:nowrap;">💲 1$ =</div>
+        <input id="fxRateInput" type="number" min="1" value="${FX_RATE}" style="width:64px; background:rgba(255,255,255,0.92); border:none; font-weight:800; text-align:center; padding:4px 5px; font-size:11px; border-radius:6px;">
+        <span style="color:#fff; font-weight:700; font-size:10px;">UZS</span>
+        <button class="btn-ghost btn-sm" id="btnSaveFxRate" style="background:#fff; padding:4px 8px;">✓</button>
       </div>
     </div>
 
@@ -1444,11 +1447,15 @@ function renderDashboard(data){
         <button data-currency="uzs" class="${state.currency==='uzs'?'active':''}">🇺🇿 ${t('currency_som')}</button>
         <button data-currency="usd" class="${state.currency==='usd'?'active':''}">🇺🇸 ${t('currency_usd')}</button>
       </div>
+      <div class="tabbar" style="margin-bottom:10px;">
+        <button data-period="today" class="${state.dashPeriod==='today'?'active':''}">${t('today')}</button>
+        <button data-period="week" class="${state.dashPeriod==='week'?'active':''}">${t('this_week')}</button>
+        <button data-period="month" class="${state.dashPeriod==='month'?'active':''}">${t('this_month')}</button>
+      </div>
       <div style="display:flex; gap:6px; align-items:center;">
         <input type="date" id="dateFrom" value="${state.dateFrom}" style="flex:1; min-width:0; padding:7px 6px; font-size:11.5px;">
         <span style="color:var(--muted); font-size:11px; flex-shrink:0;">—</span>
         <input type="date" id="dateTo" value="${state.dateTo}" style="flex:1; min-width:0; padding:7px 6px; font-size:11.5px;">
-        <button class="btn-ghost btn-sm" id="btnToday" style="flex-shrink:0; padding:7px 10px;">${t('today')}</button>
       </div>
       <button class="btn-3d btn-sm" id="openExpenseModal" style="width:100%; margin-top:8px;">+ ${t('rasxod')}</button>
       <button class="btn-3d btn-sm" id="btnCloseCash" style="width:100%; margin-top:8px; background:linear-gradient(180deg,#3E4C63,#1E2938 60%,#111925);">🔒 ${t('close_cash_register')}</button>
@@ -4184,10 +4191,29 @@ function bindShellEvents(data){
   });
   const dFrom = document.getElementById('dateFrom');
   const dTo = document.getElementById('dateTo');
-  if(dFrom) dFrom.onchange = ()=>{ state.dateFrom = dFrom.value; render(); };
-  if(dTo) dTo.onchange = ()=>{ state.dateTo = dTo.value; render(); };
-  const btnToday = document.getElementById('btnToday');
-  if(btnToday) btnToday.onclick = ()=>{ state.dateFrom = todayStr(); state.dateTo = todayStr(); render(); };
+  if(dFrom) dFrom.onchange = ()=>{ state.dateFrom = dFrom.value; state.dashPeriod = 'custom'; render(); };
+  if(dTo) dTo.onchange = ()=>{ state.dateTo = dTo.value; state.dashPeriod = 'custom'; render(); };
+  document.querySelectorAll('[data-period]').forEach(b=>{
+    b.onclick = ()=>{
+      const p = b.dataset.period;
+      state.dashPeriod = p;
+      const today = new Date();
+      if(p==='today'){
+        state.dateFrom = todayStr(); state.dateTo = todayStr();
+      } else if(p==='week'){
+        const day = today.getDay(); // 0=Yak,1=Dush...
+        const diffToMonday = day===0 ? 6 : day-1;
+        const monday = new Date(today); monday.setDate(today.getDate()-diffToMonday);
+        state.dateFrom = monday.toISOString().slice(0,10);
+        state.dateTo = todayStr();
+      } else if(p==='month'){
+        const first = new Date(today.getFullYear(), today.getMonth(), 1);
+        state.dateFrom = first.toISOString().slice(0,10);
+        state.dateTo = todayStr();
+      }
+      render();
+    };
+  });
   const btnSaveFxRate = document.getElementById('btnSaveFxRate');
   if(btnSaveFxRate) btnSaveFxRate.onclick = async ()=>{
     const v = Number(document.getElementById('fxRateInput').value)||FX_RATE;
