@@ -362,6 +362,7 @@ uz:{app_name:"Master ERP", app_tag:"ERP TIZIMI", login:"Kirish", register:"Ro'yx
   xlsx_roll_hint:"Metr birligida (rulon) tovarlar uchun Miqdor ustuniga bir nechta rulon uzunligini + belgisi bilan yozing: masalan 32+45+18 (3 ta rulon, mos ravishda 32m, 45m, 18m)", xlsx_load_failed:"Excel kutubxonasini yuklab bo'lmadi - internetni tekshiring",
   xprinter_hint:"Xprinter (58/80mm) uchun moslashtirilgan. Chop etishda tizim oynasida qog'oz o'lchamini xuddi shu (58mm yoki 80mm rulon) qilib tanlang.",
   import_nothing_found:"Faylda mos qator topilmadi - birinchi ustunda tovar nomi borligini tekshiring", rows_read:"qator o'qildi", file_read_failed:"Faylni o'qib bo'lmadi",
+  edit_rolls:"Rulonlarni tahrirlash",
   transfer_title:"Omborlar orasida o'tkazish", transfer_product:"Tovarni tanlang", transfer_from:"Qayerdan", transfer_to:"Qayerga",
   transfer_qty:"Miqdor", transfer_roll_pick:"Rulonni tanlang", transfer_btn:"O'tkazish", transfer_done:"Tovar o'tkazildi",
   jami:"Jami", variety:"xil", cost_value:"Tannarx", sale_value:"Sotish", filter_all:"Barchasi", filter_store:"Do'kon", filter_warehouse:"Ombor",
@@ -482,6 +483,7 @@ ru:{app_name:"Master ERP", app_tag:"ERP СИСТЕМА", login:"Войти", reg
   xlsx_roll_hint:"Для товаров в метрах (рулоны) укажите несколько длин через +: например 32+45+18 (3 рулона по 32м, 45м, 18м)", xlsx_load_failed:"Не удалось загрузить библиотеку Excel - проверьте интернет",
   xprinter_hint:"Адаптировано для Xprinter (58/80мм). При печати выберите такой же размер бумаги (рулон 58мм или 80мм) в системном окне печати.",
   import_nothing_found:"Подходящих строк не найдено - проверьте, есть ли название товара в первом столбце", rows_read:"строк прочитано", file_read_failed:"Не удалось прочитать файл",
+  edit_rolls:"Редактировать рулоны",
   transfer_title:"Перемещение между складами", transfer_product:"Выберите товар", transfer_from:"Откуда", transfer_to:"Куда",
   transfer_qty:"Количество", transfer_roll_pick:"Выберите рулон", transfer_btn:"Переместить", transfer_done:"Товар перемещён",
   jami:"Всего", variety:"видов", cost_value:"Себестоимость", sale_value:"Продажа", filter_all:"Все", filter_store:"Магазин", filter_warehouse:"Склад",
@@ -602,6 +604,7 @@ en:{app_name:"Master ERP", app_tag:"ERP SYSTEM", login:"Sign in", register:"Regi
   xlsx_roll_hint:"For meter-based (roll) products, list multiple roll lengths separated by +: e.g. 32+45+18 (3 rolls of 32m, 45m, 18m)", xlsx_load_failed:"Couldn't load the Excel library - check your internet",
   xprinter_hint:"Adapted for Xprinter (58/80mm). When printing, select the matching paper size (58mm or 80mm roll) in the system print dialog.",
   import_nothing_found:"No matching rows found - check that column A has a product name", rows_read:"rows read", file_read_failed:"Couldn't read the file",
+  edit_rolls:"Edit rolls",
   transfer_title:"Transfer between locations", transfer_product:"Select product", transfer_from:"From", transfer_to:"To",
   transfer_qty:"Quantity", transfer_roll_pick:"Select roll", transfer_btn:"Transfer", transfer_done:"Item transferred",
   jami:"Total", variety:"types", cost_value:"Cost value", sale_value:"Sale value", filter_all:"All", filter_store:"Store", filter_warehouse:"Warehouse",
@@ -654,7 +657,7 @@ function t(k){ return (STR[state.lang] && STR[state.lang][k]) || k; }
 
 /* ============ STATE ============ */
 const todayStr = ()=> new Date().toISOString().slice(0,10);
-const APP_VERSION = "2026-08-18-g"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
+const APP_VERSION = "2026-08-18-i"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
 let updateAvailable = false;
 let state = { lang:'uz', theme:'sapphire', session:null, page:'dashboard', partnerTab:'customers', currency:'uzs', dateFrom: todayStr(), dateTo: todayStr() };
 
@@ -1780,6 +1783,17 @@ function renderSales(data){
               <span class="badge ${payClass}">${payLabel}</span>
               <div class="mono" style="font-weight:800; color:var(--success); font-size:15px; margin-top:5px;">${money(s.total)} UZS</div>
             </div>
+          </div>
+          <div style="background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:10px 12px; margin-top:10px;">
+            ${(s.items||[]).map(i=>`
+              <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:5px 0; ${(s.items.indexOf(i)>0)?'border-top:1px solid var(--border);':''}">
+                <div style="min-width:0;">
+                  <div style="font-weight:700; font-size:12.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${i.productName}${i.productModel?` <span style="color:var(--accent-dim); font-weight:600;">(${i.productModel})</span>`:''}</div>
+                  <div style="font-size:11px; color:var(--muted); margin-top:1px;">${i.qty}${i.unit} × ${money(i.price)}</div>
+                </div>
+                <div class="mono" style="font-weight:700; font-size:12.5px; flex-shrink:0;">${money(i.total)}</div>
+              </div>
+            `).join('') || `<div style="font-size:11.5px; color:var(--muted);">—</div>`}
           </div>
           <div style="display:flex; gap:8px; margin-top:10px;">
             <button class="btn-danger btn-sm" data-return-sale="${s.id}">↺ ${t('return_sale')}</button>
@@ -3349,8 +3363,31 @@ async function modalViewProduct(data, productId){
       </div>
     </div>
     <div style="background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:12px; margin-bottom:14px;">
-      <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:6px;"><span>🏭 ${t('filter_warehouse')}</span><b>${totals.whQty} ${p.unit}</b></div>
-      <div style="display:flex; justify-content:space-between; font-size:13px;"><span>🏬 ${t('filter_store')}</span><b>${totals.storeQty} ${p.unit}</b></div>
+      ${p.rollMode ? `
+        <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; margin-bottom:8px;">
+          <span>🏭 ${t('filter_warehouse')}</span><b>${totals.whQty} ${p.unit}</b>
+        </div>
+        <button type="button" class="btn-ghost btn-sm" id="ep_edit_wh_rolls" style="width:100%; margin-bottom:10px;">✏️ ${t('edit_rolls')} (${t('filter_warehouse')})</button>
+        <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; margin-bottom:8px;">
+          <span>🏬 ${t('filter_store')}</span><b>${totals.storeQty} ${p.unit}</b>
+        </div>
+        <button type="button" class="btn-ghost btn-sm" id="ep_edit_store_rolls" style="width:100%;">✏️ ${t('edit_rolls')} (${t('filter_store')})</button>
+      ` : `
+        <div class="field" style="margin-bottom:10px;"><label>🏭 ${t('filter_warehouse')} (${p.unit})</label>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button type="button" class="btn-ghost btn-sm qty-step" data-target="ep_wh_qty" data-step="-1" style="padding:9px 14px;">−</button>
+            <input id="ep_wh_qty" type="number" step="any" value="${p.wStock||0}" style="text-align:center; flex:1;">
+            <button type="button" class="btn-ghost btn-sm qty-step" data-target="ep_wh_qty" data-step="1" style="padding:9px 14px;">+</button>
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:0;"><label>🏬 ${t('filter_store')} (${p.unit})</label>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button type="button" class="btn-ghost btn-sm qty-step" data-target="ep_store_qty" data-step="-1" style="padding:9px 14px;">−</button>
+            <input id="ep_store_qty" type="number" step="any" value="${p.stock||0}" style="text-align:center; flex:1;">
+            <button type="button" class="btn-ghost btn-sm qty-step" data-target="ep_store_qty" data-step="1" style="padding:9px 14px;">+</button>
+          </div>
+        </div>
+      `}
     </div>
     <button class="btn-3d" id="m_newsale" style="width:100%; margin-bottom:10px; background:linear-gradient(180deg,#5CFFB8,#18A876 60%,#0B7A50);">🛒 ${t('new_sale_btn')}</button>
     <div style="display:flex; gap:10px;">
@@ -3368,6 +3405,19 @@ async function modalViewProduct(data, productId){
     state.page = 'sales';
     render();
   };
+  document.querySelectorAll('.qty-step').forEach(b=>{
+    b.onclick = ()=>{
+      const inp = document.getElementById(b.dataset.target);
+      const step = Number(b.dataset.step);
+      const cur = Number(inp.value)||0;
+      const next = cur + step;
+      inp.value = next < 0 ? 0 : next;
+    };
+  });
+  const editWhRolls = document.getElementById('ep_edit_wh_rolls');
+  if(editWhRolls) editWhRolls.onclick = ()=>modalEditRolls(data, p, 'warehouse');
+  const editStoreRolls = document.getElementById('ep_edit_store_rolls');
+  if(editStoreRolls) editStoreRolls.onclick = ()=>modalEditRolls(data, p, 'store');
   document.getElementById('m_save').onclick = async ()=>{
     p.name = document.getElementById('ep_name').value.trim() || p.name;
     p.model = document.getElementById('ep_model').value.trim();
@@ -3377,9 +3427,77 @@ async function modalViewProduct(data, productId){
     p.costCurrency = document.getElementById('ep_cost_cur').value;
     p.price = Number(document.getElementById('ep_price').value)||0;
     p.priceCurrency = document.getElementById('ep_price_cur').value;
+    if(!p.rollMode){
+      const whInp = document.getElementById('ep_wh_qty');
+      const storeInp = document.getElementById('ep_store_qty');
+      if(whInp) p.wStock = Number(whInp.value)||0;
+      if(storeInp) p.stock = Number(storeInp.value)||0;
+    }
     const ok = await saveCompanyData(state.session.companyId, data);
     if(!ok) return;
     closeModal(); toast(t('saved')); render();
+  };
+}
+
+/* Rulon tovarlar uchun: har bir rulonni alohida ko'rish, uzunligini o'zgartirish, o'chirish yoki yangi rulon qo'shish */
+function modalEditRolls(data, p, location){
+  const key = location==='warehouse' ? 'wRolls' : 'rolls';
+  let rolls = JSON.parse(JSON.stringify(p[key]||[]));
+  function renderList(){
+    const listEl = document.getElementById('erModalList');
+    if(!listEl) return;
+    listEl.innerHTML = rolls.length ? rolls.map((r,i)=>`
+      <div style="display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--border);">
+        <input type="number" step="any" min="0" class="er-roll-len" data-idx="${i}" value="${r.length}" style="flex:1;">
+        <span style="color:var(--muted); font-size:12px;">${p.unit}</span>
+        <button type="button" class="btn-ghost btn-sm" data-del="${i}" style="color:var(--danger); padding:8px 12px;">✕</button>
+      </div>
+    `).join('') : `<div style="text-align:center; color:var(--muted); font-size:13px; padding:14px;">—</div>`;
+    listEl.querySelectorAll('.er-roll-len').forEach(inp=>{
+      inp.oninput = ()=>{ rolls[Number(inp.dataset.idx)].length = Number(inp.value)||0; updateTotal(); };
+    });
+    listEl.querySelectorAll('[data-del]').forEach(b=>{
+      b.onclick = ()=>{ rolls.splice(Number(b.dataset.del),1); renderList(); updateTotal(); };
+    });
+    updateTotal();
+  }
+  function updateTotal(){
+    const totalEl = document.getElementById('erModalTotal');
+    if(totalEl) totalEl.textContent = rolls.reduce((s,r)=>s+Number(r.length||0),0) + ' ' + p.unit;
+  }
+  openModal(`
+    <h3 style="margin-bottom:6px;">✏️ ${t('edit_rolls')}</h3>
+    <div style="font-size:12px; color:var(--muted); margin-bottom:14px;">${p.name}${p.model?' — '+p.model:''} · ${location==='warehouse'?t('filter_warehouse'):t('filter_store')}</div>
+    <div id="erModalList" style="max-height:260px; overflow-y:auto; margin-bottom:12px;"></div>
+    <div style="display:flex; gap:8px; margin-bottom:14px;">
+      <input id="erNewLen" type="number" step="any" min="0" placeholder="${t('roll_meter_ph')}" style="flex:1;">
+      <button type="button" class="btn-3d btn-sm" id="erAddRoll">+ ${t('add_btn')}</button>
+    </div>
+    <div style="background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:10px 12px; margin-bottom:16px; display:flex; justify-content:space-between; font-weight:700; font-size:13px;">
+      <span>${t('grand_total_label')}:</span><span id="erModalTotal">0</span>
+    </div>
+    <div style="display:flex; gap:10px;">
+      <button class="btn-3d" id="m_save" style="flex:1;">${t('save')}</button>
+      <button class="btn-ghost" id="m_cancel" style="flex:1;">${t('cancel')}</button>
+    </div>
+  `);
+  renderList();
+  document.getElementById('m_cancel').onclick = closeModal;
+  document.getElementById('erAddRoll').onclick = ()=>{
+    const v = Number(document.getElementById('erNewLen').value);
+    if(!v || v<=0) return;
+    rolls.push({ id:uid(), length:v });
+    document.getElementById('erNewLen').value = '';
+    renderList();
+  };
+  document.getElementById('m_save').onclick = async ()=>{
+    p[key] = rolls;
+    if(location==='warehouse') p.wStock = rolls.reduce((s,r)=>s+Number(r.length||0),0);
+    else p.stock = rolls.reduce((s,r)=>s+Number(r.length||0),0);
+    const ok = await saveCompanyData(state.session.companyId, data);
+    if(!ok) return;
+    closeModal(); toast(t('saved'));
+    modalViewProduct(data, p.id);
   };
 }
 function openQuickScan(data){
