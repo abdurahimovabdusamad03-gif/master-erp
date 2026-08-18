@@ -234,14 +234,18 @@ tr:hover td{background:rgba(255,255,255,0.02);}
     box-shadow:0 -8px 24px rgba(62,155,255,0.15);
   }
   .bn-item{flex:1 1 0; display:flex; flex-direction:column; align-items:center; gap:2px; color:var(--muted); font-size:8.8px; font-weight:700; cursor:pointer; padding:5px 1px; border-radius:10px; transition:background .12s,color .12s; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:90px;}
-  .bn-scan-wrap{position:relative; width:0; flex:0 0 0; display:flex; justify-content:center;}
+  .bn-scan-connector{
+    position:absolute; left:50%; top:-13px; transform:translateX(-50%);
+    width:5px; height:15px; border-radius:3px 3px 0 0;
+    background:linear-gradient(180deg,#1B5FC4,#0D3E85);
+  }
   .bn-scan-fab{
-    position:absolute; left:50%; top:-30px; transform:translateX(-50%);
-    width:56px; height:56px; border-radius:50%; border:4px solid var(--panel);
+    position:absolute; left:50%; top:-28px; transform:translateX(-50%);
+    width:54px; height:54px; border-radius:50%; border:3px solid var(--panel);
     background:linear-gradient(180deg,#6FC2FF,#1B5FC4 60%,#0D3E85);
-    color:#fff; font-size:22px; display:flex; align-items:center; justify-content:center;
-    box-shadow:0 8px 20px rgba(27,95,196,0.45), 0 2px 0 rgba(255,255,255,0.4) inset;
-    cursor:pointer; z-index:5;
+    color:#fff; font-size:21px; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 8px 18px rgba(27,95,196,0.5), 0 2px 0 rgba(255,255,255,0.35) inset;
+    cursor:pointer; z-index:6;
   }
   .bn-scan-fab:active{transform:translateX(-50%) scale(0.94);}
   .bn-item.active{color:var(--accent-dim); background:rgba(62,155,255,0.12);}
@@ -1279,14 +1283,9 @@ async function renderShell(data){
     </div>
   </div>
   <div class="bottom-nav">
-    ${visibleNav.map((n,i)=>{
-      const item = `<div class="bn-item ${state.page===n.id?'active':''}" data-page="${n.id}"><span class="bn-icon">${n.icon}</span>${t(n.id)}</div>`;
-      // O'rtaga (nav yarmi joyida) chiqib turuvchi tezkor skaner tugmasi qo'yamiz
-      if(i === Math.floor(visibleNav.length/2)){
-        return `<div class="bn-scan-wrap"><button type="button" id="btnQuickScan" class="bn-scan-fab" title="${t('quick_scan')}">📷</button></div>` + item;
-      }
-      return item;
-    }).join('')}
+    ${visibleNav.map(n=>`<div class="bn-item ${state.page===n.id?'active':''}" data-page="${n.id}"><span class="bn-icon">${n.icon}</span>${t(n.id)}</div>`).join('')}
+    <div class="bn-scan-connector"></div>
+    <button type="button" id="btnQuickScan" class="bn-scan-fab" title="${t('quick_scan')}">📷</button>
   </div>
   `;
 }
