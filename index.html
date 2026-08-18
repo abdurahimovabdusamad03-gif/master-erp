@@ -363,6 +363,9 @@ uz:{app_name:"Master ERP", app_tag:"ERP TIZIMI", login:"Kirish", register:"Ro'yx
   xprinter_hint:"Xprinter (58/80mm) uchun moslashtirilgan. Chop etishda tizim oynasida qog'oz o'lchamini xuddi shu (58mm yoki 80mm rulon) qilib tanlang.",
   import_nothing_found:"Faylda mos qator topilmadi - birinchi ustunda tovar nomi borligini tekshiring", rows_read:"qator o'qildi", file_read_failed:"Faylni o'qib bo'lmadi",
   edit_rolls:"Rulonlarni tahrirlash",
+  defect_btn:"Brak", defect_title:"Brak/Defekt tovarni hisobdan chiqarish", defect_qty:"Brak miqdori", defect_reason:"Sababi", defect_reason_ph:"Masalan: nam bo'lib qolgan, sinib qolgan...",
+  estimated_loss:"Taxminiy zarar", defect_confirm:"Hisobdan chiqarish", defect_done:"Brak hisobdan chiqarildi va rasxodga yozildi", not_enough_stock:"Qoldiqda yetarli emas",
+  defect_expense_label:"Brak/Defekt", defect_category:"Brak", optional:"ixtiyoriy",
   transfer_title:"Omborlar orasida o'tkazish", transfer_product:"Tovarni tanlang", transfer_from:"Qayerdan", transfer_to:"Qayerga",
   transfer_qty:"Miqdor", transfer_roll_pick:"Rulonni tanlang", transfer_btn:"O'tkazish", transfer_done:"Tovar o'tkazildi",
   jami:"Jami", variety:"xil", cost_value:"Tannarx", sale_value:"Sotish", filter_all:"Barchasi", filter_store:"Do'kon", filter_warehouse:"Ombor",
@@ -484,6 +487,9 @@ ru:{app_name:"Master ERP", app_tag:"ERP СИСТЕМА", login:"Войти", reg
   xprinter_hint:"Адаптировано для Xprinter (58/80мм). При печати выберите такой же размер бумаги (рулон 58мм или 80мм) в системном окне печати.",
   import_nothing_found:"Подходящих строк не найдено - проверьте, есть ли название товара в первом столбце", rows_read:"строк прочитано", file_read_failed:"Не удалось прочитать файл",
   edit_rolls:"Редактировать рулоны",
+  defect_btn:"Брак", defect_title:"Списать бракованный товар", defect_qty:"Количество брака", defect_reason:"Причина", defect_reason_ph:"Например: намок, сломан...",
+  estimated_loss:"Примерный убыток", defect_confirm:"Списать", defect_done:"Брак списан и добавлен в расходы", not_enough_stock:"Недостаточно на остатке",
+  defect_expense_label:"Брак/Дефект", defect_category:"Брак", optional:"необязательно",
   transfer_title:"Перемещение между складами", transfer_product:"Выберите товар", transfer_from:"Откуда", transfer_to:"Куда",
   transfer_qty:"Количество", transfer_roll_pick:"Выберите рулон", transfer_btn:"Переместить", transfer_done:"Товар перемещён",
   jami:"Всего", variety:"видов", cost_value:"Себестоимость", sale_value:"Продажа", filter_all:"Все", filter_store:"Магазин", filter_warehouse:"Склад",
@@ -605,6 +611,9 @@ en:{app_name:"Master ERP", app_tag:"ERP SYSTEM", login:"Sign in", register:"Regi
   xprinter_hint:"Adapted for Xprinter (58/80mm). When printing, select the matching paper size (58mm or 80mm roll) in the system print dialog.",
   import_nothing_found:"No matching rows found - check that column A has a product name", rows_read:"rows read", file_read_failed:"Couldn't read the file",
   edit_rolls:"Edit rolls",
+  defect_btn:"Defect", defect_title:"Write off defective stock", defect_qty:"Defect quantity", defect_reason:"Reason", defect_reason_ph:"E.g: got wet, broken...",
+  estimated_loss:"Estimated loss", defect_confirm:"Write off", defect_done:"Defect written off and added to expenses", not_enough_stock:"Not enough stock",
+  defect_expense_label:"Defect", defect_category:"Defect", optional:"optional",
   transfer_title:"Transfer between locations", transfer_product:"Select product", transfer_from:"From", transfer_to:"To",
   transfer_qty:"Quantity", transfer_roll_pick:"Select roll", transfer_btn:"Transfer", transfer_done:"Item transferred",
   jami:"Total", variety:"types", cost_value:"Cost value", sale_value:"Sale value", filter_all:"All", filter_store:"Store", filter_warehouse:"Warehouse",
@@ -657,7 +666,7 @@ function t(k){ return (STR[state.lang] && STR[state.lang][k]) || k; }
 
 /* ============ STATE ============ */
 const todayStr = ()=> new Date().toISOString().slice(0,10);
-const APP_VERSION = "2026-08-18-i"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
+const APP_VERSION = "2026-08-18-k"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
 let updateAvailable = false;
 let state = { lang:'uz', theme:'sapphire', session:null, page:'dashboard', partnerTab:'customers', currency:'uzs', dateFrom: todayStr(), dateTo: todayStr() };
 
@@ -1158,6 +1167,14 @@ async function tryRestoreSession(){
   }catch(e){ console.error('tryRestoreSession error', e); }
 }
 async function savePrefs(){ await sSet('device_prefs', { lang: state.lang, theme: state.theme }, false); }
+
+/* Qidiruv maydonlarida yozayotganda har bir harfda butun sahifa qayta chizilib, mobil klaviatura
+   yopilib qolmasligi uchun - render()ni bir oz kutish (debounce) bilan chaqiramiz. */
+let searchRenderTimer = null;
+function debouncedRender(delay=260){
+  clearTimeout(searchRenderTimer);
+  searchRenderTimer = setTimeout(()=>{ render(); }, delay);
+}
 
 /* ============ RENDER ROOT ============ */
 async function render(){
@@ -1908,6 +1925,7 @@ function renderWarehouse(data){
           <div style="font-weight:800; color:var(--success);" class="mono">${priceLabel}</div>
           <div style="display:flex; gap:8px;">
             <button class="btn-ghost btn-sm" data-print-barcode="${p.id}">🏷 ${t('barcode')}</button>
+            <button class="btn-ghost btn-sm" data-defect="${p.id}" style="color:var(--danger); border-color:rgba(226,59,84,0.35);">⚠ ${t('defect_btn')}</button>
             <button class="btn-ghost btn-sm" data-view-product="${p.id}">👁 ${t('details')}</button>
             <button class="btn-danger btn-sm" data-del-product="${p.id}">🗑</button>
           </div>
@@ -3068,6 +3086,21 @@ async function returnSale(data, saleId){
   await saveCompanyData(state.session.companyId, data);
   toast(t('deleted'));
   render();
+  sendReturnTelegramNotification(data, sale);
+}
+
+async function sendReturnTelegramNotification(data, sale){
+  const cfg = data.telegramConfig;
+  if(!cfg || !cfg.enabled || !cfg.token || !cfg.chatId) return;
+  const lines = [
+    `↺ *Vozvrat qilindi* — ${sale.invoiceNo||''}`,
+    `👤 ${sale.customer || 'Oddiy xaridor'}`,
+    ...(sale.items||[]).map(i=>`• ${i.productName}${i.productModel?' ('+i.productModel+')':''} × ${i.qty}${i.unit} — ${money(i.total)}`),
+    `💰 Qaytarilgan summa: ${money(sale.total)} UZS`,
+    `👨‍💼 ${state.session.fullName}`,
+    `📅 ${todayStr()}`
+  ];
+  await sendTelegramText(cfg, lines.join('\n'));
 }
 
 /* Chekning HTML ko'rinishini quradi - haqiqiy chek va Sozlamalardagi jonli oldindan ko'rish uchun umumiy ishlatiladi */
@@ -3440,6 +3473,85 @@ async function modalViewProduct(data, productId){
 }
 
 /* Rulon tovarlar uchun: har bir rulonni alohida ko'rish, uzunligini o'zgartirish, o'chirish yoki yangi rulon qo'shish */
+/* Brak/defekt tovarni hisobdan chiqarish: qoldiqdan kamaytiradi va tannarx bo'yicha zararni
+   avtomatik rasxod sifatida yozadi (Dashboard'dagi sof foyda hisobiga ham ta'sir qiladi) */
+function modalDefectStock(data, productId){
+  const p = data.products.find(x=>x.id===productId);
+  if(!p) return;
+  const totals = productTotals(p);
+  const costUZS = p.costCurrency==='usd' ? Number(p.cost||0)*FX_RATE : Number(p.cost||0);
+  openModal(`
+    <h3 style="margin-bottom:6px; color:var(--danger);">⚠ ${t('defect_title')}</h3>
+    <div style="font-size:12.5px; color:var(--muted); margin-bottom:16px;">${p.name}${p.model?' — '+p.model:''}</div>
+    <div class="field"><label>${t('incoming_dest')}</label>
+      <div class="tabbar" style="max-width:280px; margin-bottom:0;">
+        <button type="button" data-defloc="store" class="defloc-btn active">🏬 ${t('filter_store')} (${totals.storeQty}${p.unit})</button>
+        <button type="button" data-defloc="warehouse" class="defloc-btn">🏭 ${t('filter_warehouse')} (${totals.whQty}${p.unit})</button>
+      </div>
+    </div>
+    <div class="field" style="margin-top:14px;"><label>${t('defect_qty')} (${p.unit})</label>
+      <input id="def_qty" type="number" step="any" min="0" placeholder="0">
+    </div>
+    <div class="field"><label>${t('defect_reason')} (${t('optional')})</label>
+      <input id="def_reason" placeholder="${t('defect_reason_ph')}">
+    </div>
+    <div style="background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:10px 12px; margin-bottom:16px; font-size:12.5px; display:flex; justify-content:space-between;">
+      <span>${t('estimated_loss')}:</span><b id="defLossVal" style="color:var(--danger);">0 UZS</b>
+    </div>
+    <div style="display:flex; gap:10px;">
+      <button class="btn-danger" id="m_save" style="flex:1;">⚠ ${t('defect_confirm')}</button>
+      <button class="btn-ghost" id="m_cancel" style="flex:1;">${t('cancel')}</button>
+    </div>
+  `);
+  let defLoc = 'store';
+  document.querySelectorAll('.defloc-btn').forEach(b=>{
+    b.onclick = ()=>{ defLoc=b.dataset.defloc; document.querySelectorAll('.defloc-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); };
+  });
+  document.getElementById('def_qty').oninput = ()=>{
+    const q = Number(document.getElementById('def_qty').value)||0;
+    document.getElementById('defLossVal').textContent = money(q*costUZS) + ' UZS';
+  };
+  document.getElementById('m_cancel').onclick = closeModal;
+  document.getElementById('m_save').onclick = async ()=>{
+    const qty = Number(document.getElementById('def_qty').value)||0;
+    if(qty<=0) return toast(t('fill_all'));
+    const avail = defLoc==='store' ? totals.storeQty : totals.whQty;
+    if(qty > avail) return toast(t('not_enough_stock'));
+    const reason = document.getElementById('def_reason').value.trim();
+
+    // Qoldiqdan kamaytiramiz (rulon bo'lsa - eng oxirgi rulonlardan boshlab kesib boramiz)
+    let remain = qty;
+    if(p.rollMode){
+      const rollsKey = defLoc==='store' ? 'rolls' : 'wRolls';
+      let rolls = p[rollsKey] || [];
+      rolls.sort((a,b)=>a.length-b.length); // kichigidan boshlab kamaytiramiz
+      const newRolls = [];
+      for(const r of rolls){
+        if(remain<=0){ newRolls.push(r); continue; }
+        if(r.length<=remain){ remain -= r.length; continue; } // rulon butunlay brakka ketdi
+        r.length -= remain; remain = 0; newRolls.push(r);
+      }
+      p[rollsKey] = newRolls;
+      if(defLoc==='store') p.stock = newRolls.reduce((s,r)=>s+r.length,0);
+      else p.wStock = newRolls.reduce((s,r)=>s+r.length,0);
+    } else {
+      if(defLoc==='store') p.stock = Math.max(0, Number(p.stock||0)-qty);
+      else p.wStock = Math.max(0, Number(p.wStock||0)-qty);
+    }
+
+    // Zararni rasxod sifatida yozamiz
+    const lossAmount = qty*costUZS;
+    data.expenses = data.expenses || [];
+    data.expenses.push({
+      id:uid(), name:`${t('defect_expense_label')}: ${p.name}${p.model?' ('+p.model+')':''}${reason?' - '+reason:''}`,
+      category:t('defect_category'), emoji:'⚠', amount:lossAmount, paymentType:'naqd', date:todayStr()
+    });
+
+    const ok = await saveCompanyData(state.session.companyId, data);
+    if(!ok) return;
+    closeModal(); toast(t('defect_done')); render();
+  };
+}
 function modalEditRolls(data, p, location){
   const key = location==='warehouse' ? 'wRolls' : 'rolls';
   let rolls = JSON.parse(JSON.stringify(p[key]||[]));
@@ -4097,7 +4209,7 @@ function bindShellEvents(data){
     const openRestock = document.getElementById('openRestockModal');
     if(openRestock) openRestock.onclick = ()=>openRestockModal(data);
     const whSearchEl = document.getElementById('whSearch');
-    if(whSearchEl) whSearchEl.oninput = ()=>{ whSearch = whSearchEl.value; render(); };
+    if(whSearchEl){ whSearchEl.oninput = ()=>{ whSearch = whSearchEl.value; debouncedRender(); }; if(whSearch){ setTimeout(()=>{ try{ whSearchEl.focus(); whSearchEl.selectionStart = whSearchEl.value.length; }catch(e){} }, 0); } }
     document.querySelectorAll('[data-whfilter]').forEach(b=>{
       b.onclick = ()=>{ whFilter = b.dataset.whfilter; render(); };
     });
@@ -4108,7 +4220,7 @@ function bindShellEvents(data){
     const btnAddStore = document.getElementById('btnAddStore');
     if(btnAddStore) btnAddStore.onclick = ()=>modalAddStore(data);
     const psSearchEl = document.getElementById('psSearch');
-    if(psSearchEl) psSearchEl.oninput = ()=>{ psSearch = psSearchEl.value; render(); };
+    if(psSearchEl){ psSearchEl.oninput = ()=>{ psSearch = psSearchEl.value; debouncedRender(); }; if(psSearch){ setTimeout(()=>{ try{ psSearchEl.focus(); psSearchEl.selectionStart = psSearchEl.value.length; }catch(e){} }, 0); } }
     document.querySelectorAll('[data-del-store]').forEach(b=>{
       b.onclick = async ()=>{
         data.partnerStores = (data.partnerStores||[]).filter(s=>s.id!==b.dataset.delStore);
@@ -4131,7 +4243,7 @@ function bindShellEvents(data){
     const btnDebtorsOnly = document.getElementById('btnDebtorsOnly');
     if(btnDebtorsOnly) btnDebtorsOnly.onclick = ()=>{ custDebtOnly = !custDebtOnly; render(); };
     const custSearchEl = document.getElementById('custSearch');
-    if(custSearchEl) custSearchEl.oninput = ()=>{ custSearch = custSearchEl.value; render(); };
+    if(custSearchEl){ custSearchEl.oninput = ()=>{ custSearch = custSearchEl.value; debouncedRender(); }; if(custSearch){ setTimeout(()=>{ try{ custSearchEl.focus(); custSearchEl.selectionStart = custSearchEl.value.length; }catch(e){} }, 0); } }
     document.querySelectorAll('[data-del-customer]').forEach(b=>{
       b.onclick = async ()=>{
         data.partners = data.partners.filter(p=>p.id!==b.dataset.delCustomer);
@@ -4307,7 +4419,7 @@ function bindShellEvents(data){
     if(sfPhone) sfPhone.oninput = ()=>{ saleForm.phone = sfPhone.value; pushActiveCart(state.session.companyId); };
     const sfProductSearch = document.getElementById('sf_product_search');
     if(sfProductSearch){
-      sfProductSearch.oninput = ()=>{ saleForm.productSearchQuery = sfProductSearch.value; render(); };
+      sfProductSearch.oninput = ()=>{ saleForm.productSearchQuery = sfProductSearch.value; debouncedRender(); };
       setTimeout(()=>{ try{ sfProductSearch.focus(); sfProductSearch.selectionStart = sfProductSearch.value.length; }catch(e){} }, 0);
     }
     document.querySelectorAll('[data-pick-product]').forEach(el=>{
@@ -4386,7 +4498,7 @@ function bindShellEvents(data){
     const btnSaveSale = document.getElementById('btnSaveSale');
     if(btnSaveSale) btnSaveSale.onclick = ()=>finalizeSale(data);
     const sfSearch = document.getElementById('sf_search');
-    if(sfSearch) sfSearch.oninput = ()=>{ saleSearch = sfSearch.value; render(); };
+    if(sfSearch){ sfSearch.oninput = ()=>{ saleSearch = sfSearch.value; debouncedRender(); }; if(saleSearch){ setTimeout(()=>{ try{ sfSearch.focus(); sfSearch.selectionStart = sfSearch.value.length; }catch(e){} }, 0); } }
     document.querySelectorAll('[data-return-sale]').forEach(b=>{
       b.onclick = ()=>returnSale(data, b.dataset.returnSale);
     });
@@ -4396,6 +4508,9 @@ function bindShellEvents(data){
 
     document.querySelectorAll('[data-view-product]').forEach(b=>{
       b.onclick = ()=>modalViewProduct(data, b.dataset.viewProduct);
+    });
+    document.querySelectorAll('[data-defect]').forEach(b=>{
+      b.onclick = ()=>modalDefectStock(data, b.dataset.defect);
     });
     document.querySelectorAll('[data-print-barcode]').forEach(b=>{
       b.onclick = ()=>modalPrintBarcode(data, b.dataset.printBarcode);
