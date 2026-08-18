@@ -361,6 +361,7 @@ uz:{app_name:"Master ERP", app_tag:"ERP TIZIMI", login:"Kirish", register:"Ro'yx
   xlsx_columns_hint:"Ustunlar: Nomi | Modeli | Birligi | Miqdor | Tannarx | Tannarx valyutasi | Narx | Narx valyutasi", import_skipped:"qator o'tkazib yuborildi",
   xlsx_roll_hint:"Metr birligida (rulon) tovarlar uchun Miqdor ustuniga bir nechta rulon uzunligini + belgisi bilan yozing: masalan 32+45+18 (3 ta rulon, mos ravishda 32m, 45m, 18m)", xlsx_load_failed:"Excel kutubxonasini yuklab bo'lmadi - internetni tekshiring",
   xprinter_hint:"Xprinter (58/80mm) uchun moslashtirilgan. Chop etishda tizim oynasida qog'oz o'lchamini xuddi shu (58mm yoki 80mm rulon) qilib tanlang.",
+  import_nothing_found:"Faylda mos qator topilmadi - birinchi ustunda tovar nomi borligini tekshiring", rows_read:"qator o'qildi", file_read_failed:"Faylni o'qib bo'lmadi",
   transfer_title:"Omborlar orasida o'tkazish", transfer_product:"Tovarni tanlang", transfer_from:"Qayerdan", transfer_to:"Qayerga",
   transfer_qty:"Miqdor", transfer_roll_pick:"Rulonni tanlang", transfer_btn:"O'tkazish", transfer_done:"Tovar o'tkazildi",
   jami:"Jami", variety:"xil", cost_value:"Tannarx", sale_value:"Sotish", filter_all:"Barchasi", filter_store:"Do'kon", filter_warehouse:"Ombor",
@@ -480,6 +481,7 @@ ru:{app_name:"Master ERP", app_tag:"ERP СИСТЕМА", login:"Войти", reg
   xlsx_columns_hint:"Столбцы: Название | Модель | Ед.изм | Количество | Себестоимость | Валюта себест. | Цена | Валюта цены", import_skipped:"строк пропущено",
   xlsx_roll_hint:"Для товаров в метрах (рулоны) укажите несколько длин через +: например 32+45+18 (3 рулона по 32м, 45м, 18м)", xlsx_load_failed:"Не удалось загрузить библиотеку Excel - проверьте интернет",
   xprinter_hint:"Адаптировано для Xprinter (58/80мм). При печати выберите такой же размер бумаги (рулон 58мм или 80мм) в системном окне печати.",
+  import_nothing_found:"Подходящих строк не найдено - проверьте, есть ли название товара в первом столбце", rows_read:"строк прочитано", file_read_failed:"Не удалось прочитать файл",
   transfer_title:"Перемещение между складами", transfer_product:"Выберите товар", transfer_from:"Откуда", transfer_to:"Куда",
   transfer_qty:"Количество", transfer_roll_pick:"Выберите рулон", transfer_btn:"Переместить", transfer_done:"Товар перемещён",
   jami:"Всего", variety:"видов", cost_value:"Себестоимость", sale_value:"Продажа", filter_all:"Все", filter_store:"Магазин", filter_warehouse:"Склад",
@@ -599,6 +601,7 @@ en:{app_name:"Master ERP", app_tag:"ERP SYSTEM", login:"Sign in", register:"Regi
   xlsx_columns_hint:"Columns: Name | Model | Unit | Quantity | Cost | Cost currency | Price | Price currency", import_skipped:"rows skipped",
   xlsx_roll_hint:"For meter-based (roll) products, list multiple roll lengths separated by +: e.g. 32+45+18 (3 rolls of 32m, 45m, 18m)", xlsx_load_failed:"Couldn't load the Excel library - check your internet",
   xprinter_hint:"Adapted for Xprinter (58/80mm). When printing, select the matching paper size (58mm or 80mm roll) in the system print dialog.",
+  import_nothing_found:"No matching rows found - check that column A has a product name", rows_read:"rows read", file_read_failed:"Couldn't read the file",
   transfer_title:"Transfer between locations", transfer_product:"Select product", transfer_from:"From", transfer_to:"To",
   transfer_qty:"Quantity", transfer_roll_pick:"Select roll", transfer_btn:"Transfer", transfer_done:"Item transferred",
   jami:"Total", variety:"types", cost_value:"Cost value", sale_value:"Sale value", filter_all:"All", filter_store:"Store", filter_warehouse:"Warehouse",
@@ -651,7 +654,7 @@ function t(k){ return (STR[state.lang] && STR[state.lang][k]) || k; }
 
 /* ============ STATE ============ */
 const todayStr = ()=> new Date().toISOString().slice(0,10);
-const APP_VERSION = "2026-08-18-d"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
+const APP_VERSION = "2026-08-18-f"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
 let updateAvailable = false;
 let state = { lang:'uz', theme:'sapphire', session:null, page:'dashboard', partnerTab:'customers', currency:'uzs', dateFrom: todayStr(), dateTo: todayStr() };
 
@@ -3596,6 +3599,25 @@ function openImportModal(data){
     </div>
   `);
   let importDest = 'store';
+  /* Raqamlarni aqlli tarzda o'qiydi: valyuta belgilarini ($ so'm va h.k.) tozalaydi,
+     vergulni holatiga qarab KASR AJRATKICH ("31,5" -> 31.5, "$4,20" -> 4.2) yoki
+     MINGLIK GURUHLASH ("650,000" -> 650000) sifatida to'g'ri aniqlaydi. */
+  function parseNum(v){
+    let s = String(v==null?'':v).trim();
+    if(!s) return 0;
+    s = s.replace(/[^\d,.\-]/g, ''); // valyuta belgilari, bo'sh joy va harflarni olib tashlaymiz
+    if(!s) return 0;
+    const hasComma = s.includes(','), hasDot = s.includes('.');
+    if(hasComma && !hasDot){
+      const parts = s.split(',');
+      if(parts.length===2 && parts[1].length<=2){ s = parts[0]+'.'+parts[1]; } // kasr ajratkich
+      else { s = s.replace(/,/g,''); } // minglik guruhlash
+    } else if(hasComma && hasDot){
+      s = s.replace(/,/g,''); // ikkalasi bo'lsa, vergul minglik guruhlash deb hisoblanadi
+    }
+    const n = Number(s);
+    return isNaN(n) ? 0 : n;
+  }
   document.querySelectorAll('.impdest-btn').forEach(b=>{
     b.onclick = ()=>{ importDest=b.dataset.impdest; document.querySelectorAll('.impdest-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); };
   });
@@ -3629,29 +3651,31 @@ function openImportModal(data){
         const wb = window.XLSX.read(reader.result, { type:'array' });
         const sheet = wb.Sheets[wb.SheetNames[0]];
         const rows = window.XLSX.utils.sheet_to_json(sheet, { header:1, raw:true, defval:'' });
+        console.log('Import: fayldan o\'qilgan qatorlar', rows);
         let count = 0, skipped = 0;
         rows.forEach((row, idx)=>{
           if(idx===0) return; // sarlavha qatorini o'tkazib yuboramiz
+          const isRowEmpty = !row || row.every(c=>String(c).trim()==='');
+          if(isRowEmpty) return; // butunlay bo'sh qatorlarni jim o'tkazib yuboramiz (xato emas)
           const name = String(row[0]||'').trim();
-          if(!name) return;
+          if(!name){ skipped++; return; }
           const model = String(row[1]||'').trim();
           let unit = String(row[2]||'dona').trim().toLowerCase();
           if(!['dona','metr','qop','kg','litr'].includes(unit)) unit = 'dona';
           const qtyRaw = String(row[3]!==undefined ? row[3] : '').trim();
           const costCur = String(row[5]||'uzs').trim().toLowerCase()==='usd' ? 'usd' : 'uzs';
           const priceCur = String(row[7]||'uzs').trim().toLowerCase()==='usd' ? 'usd' : 'uzs';
-          const cost = Number(row[4])||0;
-          const price = Number(row[6])||0;
-          if(!price && !cost){ skipped++; return; }
+          const cost = parseNum(row[4]);
+          const price = parseNum(row[6]);
 
           const isRoll = unit==='metr';
           let rolls = [];
           let totalQty = 0;
           if(isRoll){
-            rolls = qtyRaw.split('+').map(s=>Number(String(s).trim())).filter(n=>!isNaN(n) && n>0).map(len=>({id:uid(), length:len}));
+            rolls = qtyRaw.split('+').map(s=>parseNum(s)).filter(n=>n>0).map(len=>({id:uid(), length:len}));
             totalQty = rolls.reduce((s,r)=>s+r.length,0);
           } else {
-            totalQty = Number(qtyRaw)||0;
+            totalQty = parseNum(qtyRaw);
           }
 
           const product = {
@@ -3670,13 +3694,19 @@ function openImportModal(data){
           data.products.push(product);
           count++;
         });
+        if(count===0){
+          statusEl.textContent = '';
+          toast('⚠️ ' + t('import_nothing_found') + ` (${rows.length} ${t('rows_read')})`);
+          return;
+        }
         const saved = await saveCompanyData(state.session.companyId, data);
         if(!saved) return;
         closeModal();
         toast(t('import_success').replace('{n}', count) + (skipped ? ` (${skipped} ${t('import_skipped')})` : ''));
         render();
-      }catch(e){ console.error('import error', e); statusEl.textContent=''; toast(t('import_failed')); }
+      }catch(e){ console.error('import error', e); statusEl.textContent=''; toast('⚠️ ' + t('import_failed') + ': ' + (e.message||e)); }
     };
+    reader.onerror = ()=>{ statusEl.textContent=''; toast('⚠️ ' + t('file_read_failed')); };
     reader.readAsArrayBuffer(file);
   };
 }
