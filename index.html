@@ -370,6 +370,7 @@ uz:{app_name:"Master ERP", app_tag:"ERP TIZIMI", login:"Kirish", register:"Ro'yx
   defect_monthly:"Brak (bu oy)", total_defect:"Umumiy brak", defect_count_label:"ta yozuv", view_details:"Batafsil",
   barcode_lib_failed:"Shtrix kod kutubxonasi yuklanmadi - internetni tekshiring",
   barcode_settings:"Shtrix kod sozlamalari", barcode_settings_hint:"Avtomatik shtrix kod formati va yorliq o'lchami", barcode_prefix:"Avtomatik prefiks", barcode_prefix_hint:"Yangi tovar qo'shilganda shtrix kod shu raqam bilan boshlanadi",
+  bc_show_name:"Tovar nomini ko'rsatish", bc_show_model:"Modelni ko'rsatish", bc_show_price:"Narxni ko'rsatish", bc_show_company:"Do'kon nomini ko'rsatish", bc_show_logo:"Logoni ko'rsatish",
   transfer_title:"Omborlar orasida o'tkazish", transfer_product:"Tovarni tanlang", transfer_from:"Qayerdan", transfer_to:"Qayerga",
   transfer_qty:"Miqdor", transfer_roll_pick:"Rulonni tanlang", transfer_btn:"O'tkazish", transfer_done:"Tovar o'tkazildi",
   jami:"Jami", variety:"xil", cost_value:"Tannarx", sale_value:"Sotish", filter_all:"Barchasi", filter_store:"Do'kon", filter_warehouse:"Ombor",
@@ -498,6 +499,7 @@ ru:{app_name:"Master ERP", app_tag:"ERP СИСТЕМА", login:"Войти", reg
   defect_monthly:"Брак (за этот месяц)", total_defect:"Всего брака", defect_count_label:"записей", view_details:"Подробнее",
   barcode_lib_failed:"Библиотека штрих-кодов не загрузилась - проверьте интернет",
   barcode_settings:"Настройки штрих-кода", barcode_settings_hint:"Формат автоматического штрих-кода и размер этикетки", barcode_prefix:"Автопрефикс", barcode_prefix_hint:"Новый штрих-код товара будет начинаться с этого числа",
+  bc_show_name:"Показывать название", bc_show_model:"Показывать модель", bc_show_price:"Показывать цену", bc_show_company:"Показывать название магазина", bc_show_logo:"Показывать лого",
   transfer_title:"Перемещение между складами", transfer_product:"Выберите товар", transfer_from:"Откуда", transfer_to:"Куда",
   transfer_qty:"Количество", transfer_roll_pick:"Выберите рулон", transfer_btn:"Переместить", transfer_done:"Товар перемещён",
   jami:"Всего", variety:"видов", cost_value:"Себестоимость", sale_value:"Продажа", filter_all:"Все", filter_store:"Магазин", filter_warehouse:"Склад",
@@ -626,6 +628,7 @@ en:{app_name:"Master ERP", app_tag:"ERP SYSTEM", login:"Sign in", register:"Regi
   defect_monthly:"Defects (this month)", total_defect:"Total defects", defect_count_label:"records", view_details:"View details",
   barcode_lib_failed:"Barcode library failed to load - check your internet",
   barcode_settings:"Barcode settings", barcode_settings_hint:"Auto-barcode format and label size", barcode_prefix:"Auto prefix", barcode_prefix_hint:"New product barcodes will start with this number",
+  bc_show_name:"Show product name", bc_show_model:"Show model", bc_show_price:"Show price", bc_show_company:"Show store name", bc_show_logo:"Show logo",
   transfer_title:"Transfer between locations", transfer_product:"Select product", transfer_from:"From", transfer_to:"To",
   transfer_qty:"Quantity", transfer_roll_pick:"Select roll", transfer_btn:"Transfer", transfer_done:"Item transferred",
   jami:"Total", variety:"types", cost_value:"Cost value", sale_value:"Sale value", filter_all:"All", filter_store:"Store", filter_warehouse:"Warehouse",
@@ -678,7 +681,7 @@ function t(k){ return (STR[state.lang] && STR[state.lang][k]) || k; }
 
 /* ============ STATE ============ */
 const todayStr = ()=> new Date().toISOString().slice(0,10);
-const APP_VERSION = "2026-08-18-q"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
+const APP_VERSION = "2026-08-18-r"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
 let updateAvailable = false;
 let state = { lang:'uz', theme:'sapphire', session:null, page:'dashboard', partnerTab:'customers', currency:'uzs', dateFrom: todayStr(), dateTo: todayStr(), dashPeriod:'today' };
 
@@ -1454,6 +1457,13 @@ function renderDashboard(data){
   const monthStartStr = monthStart.toISOString().slice(0,10);
   const monthDefects = (data.expenses||[]).filter(e=>isDefectExpense(e) && e.date>=monthStartStr && e.date<=todayStr());
   const monthDefectTotal = monthDefects.reduce((s,e)=>s+Number(e.amount||0),0);
+  const monthDefectQtyByUnit = {};
+  monthDefects.forEach(e=>{
+    if(e.defectQty && e.defectUnit){
+      monthDefectQtyByUnit[e.defectUnit] = (monthDefectQtyByUnit[e.defectUnit]||0) + Number(e.defectQty);
+    }
+  });
+  const monthDefectQtyLabel = Object.entries(monthDefectQtyByUnit).map(([u,q])=>`${money(q)} ${u}`).join(', ') || '—';
 
   const chartVals = [naqd, karta, nasiya, rasxod, sofFoyda];
   const chartMax = Math.max(1, ...chartVals.map(v=>Math.abs(v)));
@@ -1528,6 +1538,7 @@ function renderDashboard(data){
           <div>
             <div class="stat-label">⚠ ${t('defect_monthly')}</div>
             <div class="stat-num mono">${fmtMoney(monthDefectTotal)}</div>
+            <div style="font-size:11.5px; color:var(--danger); font-weight:700; margin-top:3px;">📦 ${monthDefectQtyLabel}</div>
           </div>
           <div style="font-size:11px; color:var(--muted); text-align:right;">${monthDefects.length} ${t('defect_count_label')}<br><span style="text-decoration:underline;">${t('view_details')} →</span></div>
         </div>
@@ -1926,6 +1937,13 @@ function renderWarehouse(data){
   },0);
   const allDefects = (data.expenses||[]).filter(isDefectExpense);
   const totalDefectUZS = allDefects.reduce((s,e)=>s+Number(e.amount||0),0);
+  const defectQtyByUnit = {};
+  allDefects.forEach(e=>{
+    if(e.defectQty && e.defectUnit){
+      defectQtyByUnit[e.defectUnit] = (defectQtyByUnit[e.defectUnit]||0) + Number(e.defectQty);
+    }
+  });
+  const defectQtyLabel = Object.entries(defectQtyByUnit).map(([u,q])=>`${money(q)} ${u}`).join(', ') || '—';
 
   return `
     <div class="card" style="margin-bottom:16px;">
@@ -1954,6 +1972,7 @@ function renderWarehouse(data){
         <div>
           <div class="stat-label">⚠ ${t('total_defect')}</div>
           <div class="stat-num mono">${money(totalDefectUZS)} UZS</div>
+          <div style="font-size:11.5px; color:var(--danger); font-weight:700; margin-top:3px;">📦 ${defectQtyLabel}</div>
         </div>
         <div style="font-size:11px; color:var(--muted); text-align:right;">${allDefects.length} ${t('defect_count_label')}<br><span style="text-decoration:underline;">${t('view_details')} →</span></div>
       </div>
@@ -2994,18 +3013,14 @@ function renderSettings(data){
       </div>
 
       <div class="card" style="grid-column:1/-1;">
-        <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
+        <div style="display:flex; align-items:center; gap:12px;">
           <div style="width:44px;height:44px;border-radius:12px;background:rgba(122,79,224,0.15); display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;">🏷️</div>
           <div style="flex:1;">
             <div style="font-weight:800; font-size:15px;">${t('barcode_settings')}</div>
             <div style="font-size:11.5px; color:var(--muted);">${t('barcode_settings_hint')}</div>
           </div>
+          <button class="btn-3d btn-sm" id="btnOpenBarcodeSettings">${t('open')}</button>
         </div>
-        <div class="field" style="margin-bottom:0;"><label>${t('barcode_prefix')}</label>
-          <input id="bc_prefix" maxlength="1" inputmode="numeric" pattern="[0-9]" value="${barcodePrefixDigit}" style="max-width:100px;">
-          <div style="font-size:11px; color:var(--muted); margin-top:4px;">${t('barcode_prefix_hint')}</div>
-        </div>
-        <button class="btn-3d btn-sm" id="btnSaveBarcodeSettings" style="margin-top:12px;">${t('save_settings')}</button>
       </div>
 
       <div class="card" style="grid-column:1/-1; border-color:rgba(226,59,84,0.4);">
@@ -3289,6 +3304,86 @@ function buildReceiptHTML(companyName, cfg, sale, logo){
   `;
 }
 
+function modalBarcodeSettings(data){
+  data.settings = data.settings || {};
+  const cfg = Object.assign({ showName:true, showModel:true, showPrice:true, showCompany:false, showLogo:false }, data.settings.barcodeLabel);
+  const samplePrefix = barcodePrefixDigit;
+  const sampleProduct = { name:'Namuna Tovar', model:'Model X1', price:125000, priceCurrency:'uzs', barcode: samplePrefix+'12345678901' };
+
+  openModal(`
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+      <div style="width:44px;height:44px;border-radius:12px;background:rgba(122,79,224,0.15); display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;">🏷️</div>
+      <div style="flex:1;">
+        <div style="font-weight:800; font-size:16px;">${t('barcode_settings')}</div>
+        <div style="font-size:11px; color:var(--muted);">${t('barcode_settings_hint')}</div>
+      </div>
+    </div>
+
+    <div class="field"><label>${t('barcode_prefix')}</label>
+      <input id="bc_prefix" maxlength="1" inputmode="numeric" pattern="[0-9]" value="${samplePrefix}" style="max-width:100px;">
+      <div style="font-size:11px; color:var(--muted); margin-top:4px;">${t('barcode_prefix_hint')}</div>
+    </div>
+
+    <label style="display:flex; align-items:center; gap:10px; background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:11px; margin-bottom:8px; text-transform:none; font-weight:600; cursor:pointer;">
+      <input type="checkbox" id="bc_showname" ${cfg.showName!==false?'checked':''} style="width:auto; accent-color:var(--accent);"> ${t('bc_show_name')}
+    </label>
+    <label style="display:flex; align-items:center; gap:10px; background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:11px; margin-bottom:8px; text-transform:none; font-weight:600; cursor:pointer;">
+      <input type="checkbox" id="bc_showmodel" ${cfg.showModel!==false?'checked':''} style="width:auto; accent-color:var(--accent);"> ${t('bc_show_model')}
+    </label>
+    <label style="display:flex; align-items:center; gap:10px; background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:11px; margin-bottom:8px; text-transform:none; font-weight:600; cursor:pointer;">
+      <input type="checkbox" id="bc_showprice" ${cfg.showPrice!==false?'checked':''} style="width:auto; accent-color:var(--accent);"> ${t('bc_show_price')}
+    </label>
+    <label style="display:flex; align-items:center; gap:10px; background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:11px; margin-bottom:8px; text-transform:none; font-weight:600; cursor:pointer;">
+      <input type="checkbox" id="bc_showcompany" ${cfg.showCompany?'checked':''} style="width:auto; accent-color:var(--accent);"> ${t('bc_show_company')}
+    </label>
+    <label style="display:flex; align-items:center; gap:10px; background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:11px; margin-bottom:16px; text-transform:none; font-weight:600; cursor:pointer;">
+      <input type="checkbox" id="bc_showlogo" ${cfg.showLogo?'checked':''} style="width:auto; accent-color:var(--accent);"> ${t('bc_show_logo')}
+    </label>
+
+    <div style="text-align:center; font-size:11px; color:var(--accent-dim); font-weight:800; text-transform:uppercase; margin-bottom:8px;">👁 ${t('live_preview')}</div>
+    <div style="background:var(--panel2); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:16px;">
+      <div id="barcodePreview"></div>
+    </div>
+
+    <button class="btn-3d" id="bc_save" style="width:100%;">✓ ${t('save_close')}</button>
+  `);
+
+  function currentCfg(){
+    return {
+      showName: document.getElementById('bc_showname').checked,
+      showModel: document.getElementById('bc_showmodel').checked,
+      showPrice: document.getElementById('bc_showprice').checked,
+      showCompany: document.getElementById('bc_showcompany').checked,
+      showLogo: document.getElementById('bc_showlogo').checked
+    };
+  }
+  async function updatePreview(){
+    const jbOk = await loadJsBarcode();
+    const graphic = (code)=> jbOk ? renderBarcodeSVG(code) : `<div style="font-size:11px; color:var(--danger);">⚠ ${t('barcode_lib_failed')}</div>`;
+    const previewEl = document.getElementById('barcodePreview');
+    if(previewEl) previewEl.innerHTML = buildBarcodeLabelHTML(sampleProduct, currentCfg(), graphic, state.session.companyName, data.settings.logo);
+  }
+  ['bc_showname','bc_showmodel','bc_showprice','bc_showcompany','bc_showlogo'].forEach(id=>{
+    document.getElementById(id).onchange = updatePreview;
+  });
+  document.getElementById('bc_prefix').oninput = ()=>{
+    const val = document.getElementById('bc_prefix').value.trim();
+    sampleProduct.barcode = (/^[0-9]$/.test(val)?val:'2') + '12345678901';
+    updatePreview();
+  };
+  updatePreview();
+
+  document.getElementById('bc_save').onclick = async ()=>{
+    const val = document.getElementById('bc_prefix').value.trim();
+    const prefix = /^[0-9]$/.test(val) ? val : '2';
+    data.settings.barcodePrefix = prefix;
+    data.settings.barcodeLabel = currentCfg();
+    const ok = await saveCompanyData(state.session.companyId, data);
+    if(!ok) return;
+    barcodePrefixDigit = prefix;
+    closeModal(); toast(t('settings_saved')); render();
+  };
+}
 function modalReceiptSettings(data){
   data.settings = data.settings || {};
   const cfg = Object.assign({ size:'80mm', address:'', phones:[], telegramChannel:'', showLogo:true, showPhone:true, showTelegram:false, thanksText:'' }, data.settings.receipt||{});
@@ -3440,31 +3535,38 @@ async function modalAddExpense(data){
     closeModal(); toast(t('saved')); render();
   };
 }
+/* Bitta shtrix kod yorlig'ini sozlamalarga (nima ko'rsatilishi) qarab quradi - haqiqiy chop etish va
+   Sozlamalardagi jonli oldindan ko'rish ikkalasida ham ishlatiladi */
+function buildBarcodeLabelHTML(p, cfg, barcodeGraphic, companyName, logo, extraLine){
+  const priceLabel = p.priceCurrency==='usd' ? `$${p.price}` : money(p.price)+' UZS';
+  const nameLine = [p.name, cfg.showModel!==false ? p.model : ''].filter(Boolean).join(' · ');
+  return `
+    <div style="border:1px dashed var(--border); border-radius:8px; padding:10px; margin-bottom:8px; text-align:center; background:#fff;">
+      ${cfg.showCompany ? `<div style="font-size:10px; font-weight:700; color:#555; margin-bottom:2px;">${companyName||''}</div>` : ''}
+      ${cfg.showLogo && logo ? `<img src="${logo}" style="width:26px; height:26px; border-radius:6px; object-fit:cover; margin:0 auto 4px; display:block;">` : ''}
+      ${cfg.showName!==false ? `<div style="font-weight:800; font-size:13px; color:#000;">${nameLine}</div>` : ''}
+      <div style="margin:6px auto; display:block; max-width:220px;">${barcodeGraphic(p.barcode)}</div>
+      <div class="mono" style="font-size:10.5px; color:#333;">${p.barcode}</div>
+      ${cfg.showPrice!==false ? `<div style="font-weight:700; font-size:12px; margin-top:4px; color:#000;">${priceLabel}</div>` : ''}
+      ${extraLine || ''}
+    </div>`;
+}
+
 async function modalPrintBarcode(data, productId){
   const p = data.products.find(x=>x.id===productId);
   if(!p) return;
-  const priceLabel = p.priceCurrency==='usd' ? `$${p.price}` : money(p.price)+' UZS';
+  const cfg = Object.assign({ showName:true, showModel:true, showPrice:true, showCompany:false, showLogo:false }, data.settings && data.settings.barcodeLabel);
   const jbOk = await loadJsBarcode();
   const barcodeGraphic = (code)=> jbOk ? renderBarcodeSVG(code) : `<div style="font-size:11px; color:var(--danger);">⚠ ${t('barcode_lib_failed')}</div>`;
+  const logo = data.settings && data.settings.logo;
   let unitsHtml;
   if(p.rollMode){
-    unitsHtml = (p.rolls||[]).length ? (p.rolls||[]).map(r=>`
-      <div style="border:1px dashed var(--border); border-radius:8px; padding:10px; margin-bottom:8px; text-align:center; background:#fff;">
-        <div style="font-weight:800; font-size:13px; color:#000;">${p.name}${p.model?' · '+p.model:''}</div>
-        <div style="margin:6px auto; display:block; max-width:220px;">${barcodeGraphic(p.barcode)}</div>
-        <div class="mono" style="font-size:10.5px; color:#333;">${p.barcode}</div>
-        <div style="font-weight:700; font-size:12px; margin-top:4px; color:#000;">${priceLabel}</div>
-        <div style="font-size:11px; color:var(--accent-dim); font-weight:700; margin-top:2px;">🧵 ${t('roll_contains')}: ${r.length} m</div>
-      </div>
-    `).join('') : `<div class="empty-state">${t('empty_products')}</div>`;
+    unitsHtml = (p.rolls||[]).length ? (p.rolls||[]).map(r=>
+      buildBarcodeLabelHTML(p, cfg, barcodeGraphic, state.session.companyName, logo,
+        `<div style="font-size:11px; color:var(--accent-dim); font-weight:700; margin-top:2px;">🧵 ${t('roll_contains')}: ${r.length} m</div>`)
+    ).join('') : `<div class="empty-state">${t('empty_products')}</div>`;
   } else {
-    unitsHtml = `
-      <div style="border:1px dashed var(--border); border-radius:8px; padding:10px; text-align:center; background:#fff;">
-        <div style="font-weight:800; font-size:13px; color:#000;">${p.name}${p.model?' · '+p.model:''}</div>
-        <div style="margin:6px auto; display:block; max-width:220px;">${barcodeGraphic(p.barcode)}</div>
-        <div class="mono" style="font-size:10.5px; color:#333;">${p.barcode}</div>
-        <div style="font-weight:700; font-size:12px; margin-top:4px; color:#000;">${priceLabel}</div>
-      </div>`;
+    unitsHtml = buildBarcodeLabelHTML(p, cfg, barcodeGraphic, state.session.companyName, logo);
   }
   openModal(`
     <h3 style="margin-bottom:14px;">🏷 ${t('barcode')} — ${p.name}</h3>
@@ -4564,17 +4666,8 @@ function bindShellEvents(data){
     };
     const btnOpenReceiptSettings = document.getElementById('btnOpenReceiptSettings');
     if(btnOpenReceiptSettings) btnOpenReceiptSettings.onclick = ()=>modalReceiptSettings(data);
-    const btnSaveBarcodeSettings = document.getElementById('btnSaveBarcodeSettings');
-    if(btnSaveBarcodeSettings) btnSaveBarcodeSettings.onclick = async ()=>{
-      const val = document.getElementById('bc_prefix').value.trim();
-      const prefix = /^[0-9]$/.test(val) ? val : '2';
-      data.settings = data.settings || {};
-      data.settings.barcodePrefix = prefix;
-      const ok = await saveCompanyData(state.session.companyId, data);
-      if(!ok) return;
-      barcodePrefixDigit = prefix;
-      toast(t('settings_saved'));
-    };
+    const btnOpenBarcodeSettings = document.getElementById('btnOpenBarcodeSettings');
+    if(btnOpenBarcodeSettings) btnOpenBarcodeSettings.onclick = ()=>modalBarcodeSettings(data);
     const btnDoUpdate = document.getElementById('btnDoUpdate');
     if(btnDoUpdate) btnDoUpdate.onclick = reloadForUpdate;
     const btnCheckUpdate = document.getElementById('btnCheckUpdate');
