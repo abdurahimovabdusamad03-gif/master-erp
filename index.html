@@ -669,7 +669,7 @@ function t(k){ return (STR[state.lang] && STR[state.lang][k]) || k; }
 
 /* ============ STATE ============ */
 const todayStr = ()=> new Date().toISOString().slice(0,10);
-const APP_VERSION = "2026-08-18-n"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
+const APP_VERSION = "2026-08-18-o"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
 let updateAvailable = false;
 let state = { lang:'uz', theme:'sapphire', session:null, page:'dashboard', partnerTab:'customers', currency:'uzs', dateFrom: todayStr(), dateTo: todayStr(), dashPeriod:'today' };
 
@@ -1674,6 +1674,27 @@ function nextInvoiceNo(data){
   return `INV-${year}-${String(seq).padStart(4,'0')}`;
 }
 
+function buildProductSearchResultsHTML(data, query){
+  const q = (query||'').trim().toLowerCase();
+  if(!q) return '';
+  const matches = data.products.filter(p=>
+    (p.name||'').toLowerCase().includes(q) || (p.model||'').toLowerCase().includes(q) || (p.barcode||'').toLowerCase().includes(q)
+  ).slice(0,25);
+  if(!matches.length) return `<div style="padding:14px; text-align:center; color:var(--muted); font-size:12.5px;">${t('no_results')}</div>`;
+  return matches.map(p=>{
+    const stockLabel = p.rollMode ? `${(p.rolls||[]).length} ${t('rolls_count')} · ${(p.rolls||[]).reduce((s,r)=>s+r.length,0)}${t('meter_short')}` : `${p.stock} ${p.unit}`;
+    return `
+      <div data-pick-product="${p.id}" style="display:flex; align-items:center; gap:10px; padding:9px 10px; border-bottom:1px solid var(--border); cursor:pointer;">
+        <div style="width:38px; height:38px; border-radius:8px; overflow:hidden; background:var(--panel); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:16px;">
+          ${p.image ? `<img src="${p.image}" style="width:100%; height:100%; object-fit:cover;">` : '📦'}
+        </div>
+        <div style="flex:1; min-width:0;">
+          <div style="font-weight:700; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${p.name}${p.model?` · ${p.model}`:''}</div>
+          <div style="font-size:10.5px; color:var(--muted);">${stockLabel}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
 function renderSales(data){
   const product = data.products.find(p=>p.id===saleForm.selProductId);
   const cartTotal = saleCart.reduce((s,i)=>s+i.total,0);
@@ -1726,30 +1747,7 @@ function renderSales(data){
           </div>
         ` : `
           <input id="sf_product_search" placeholder="${t('search_product_ph')}" value="${saleForm.productSearchQuery||''}" autocomplete="off">
-          ${(saleForm.productSearchQuery||'').trim() ? `
-            <div id="sf_product_results" style="max-height:280px; overflow-y:auto; margin-top:8px; border:1px solid var(--border); border-radius:10px; background:var(--panel2);">
-              ${(function(){
-                const q = saleForm.productSearchQuery.trim().toLowerCase();
-                const matches = data.products.filter(p=>
-                  (p.name||'').toLowerCase().includes(q) || (p.model||'').toLowerCase().includes(q) || (p.barcode||'').toLowerCase().includes(q)
-                ).slice(0,25);
-                if(!matches.length) return `<div style="padding:14px; text-align:center; color:var(--muted); font-size:12.5px;">${t('no_results')}</div>`;
-                return matches.map(p=>{
-                  const stockLabel = p.rollMode ? `${(p.rolls||[]).length} ${t('rolls_count')} · ${(p.rolls||[]).reduce((s,r)=>s+r.length,0)}${t('meter_short')}` : `${p.stock} ${p.unit}`;
-                  return `
-                    <div data-pick-product="${p.id}" style="display:flex; align-items:center; gap:10px; padding:9px 10px; border-bottom:1px solid var(--border); cursor:pointer;">
-                      <div style="width:38px; height:38px; border-radius:8px; overflow:hidden; background:var(--panel); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:16px;">
-                        ${p.image ? `<img src="${p.image}" style="width:100%; height:100%; object-fit:cover;">` : '📦'}
-                      </div>
-                      <div style="flex:1; min-width:0;">
-                        <div style="font-weight:700; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${p.name}${p.model?` · ${p.model}`:''}</div>
-                        <div style="font-size:10.5px; color:var(--muted);">${stockLabel}</div>
-                      </div>
-                    </div>`;
-                }).join('');
-              })()}
-            </div>
-          ` : ''}
+          <div id="sf_product_results" style="max-height:280px; overflow-y:auto; margin-top:8px; border:1px solid var(--border); border-radius:10px; background:var(--panel2); ${(saleForm.productSearchQuery||'').trim() ? '' : 'display:none;'}">${buildProductSearchResultsHTML(data, saleForm.productSearchQuery)}</div>
         `}
       </div>
       ${product && product.rollMode ? `
@@ -4488,22 +4486,40 @@ function bindShellEvents(data){
     const sfPhone = document.getElementById('sf_phone');
     if(sfPhone) sfPhone.oninput = ()=>{ saleForm.phone = sfPhone.value; pushActiveCart(state.session.companyId); };
     const sfProductSearch = document.getElementById('sf_product_search');
-    if(sfProductSearch){
-      sfProductSearch.oninput = ()=>{ saleForm.productSearchQuery = sfProductSearch.value; debouncedRender(); };
-      setTimeout(()=>{ try{ sfProductSearch.focus(); sfProductSearch.selectionStart = sfProductSearch.value.length; }catch(e){} }, 0);
+    function bindProductPickHandlers(){
+      document.querySelectorAll('#sf_product_results [data-pick-product]').forEach(el=>{
+        el.onclick = ()=>{
+          const prod = data.products.find(p=>p.id===el.dataset.pickProduct);
+          if(!prod) return;
+          saleForm.selProductId = prod.id;
+          saleForm.productSearchQuery = '';
+          saleForm.selRollId = (prod.rollMode && prod.rolls && prod.rolls[0]) ? prod.rolls[0].id : '';
+          saleForm.sellMode = 'roll';
+          saleForm.price = prod.price; saleForm.priceCurrency = prod.priceCurrency||"uzs";
+          render(); // Bu yerda to'liq render kerak - "tanlangan tovar" kartasiga almashtiramiz
+        };
+      });
     }
-    document.querySelectorAll('[data-pick-product]').forEach(el=>{
-      el.onclick = ()=>{
-        const prod = data.products.find(p=>p.id===el.dataset.pickProduct);
-        if(!prod) return;
-        saleForm.selProductId = prod.id;
-        saleForm.productSearchQuery = '';
-        saleForm.selRollId = (prod.rollMode && prod.rolls && prod.rolls[0]) ? prod.rolls[0].id : '';
-        saleForm.sellMode = 'roll';
-        saleForm.price = prod.price; saleForm.priceCurrency = prod.priceCurrency||"uzs";
-        render();
+    if(sfProductSearch){
+      bindProductPickHandlers();
+      // MUHIM: bu yerda render()/debouncedRender() CHAQIRILMAYDI - faqat natijalar ro'yxatini
+      // (kichik ichki div) yangilaymiz. Shunda input maydoni hech qachon qayta yaratilmaydi,
+      // fokus va mobil klaviatura hech qachon yo'qolmaydi/pirillamaydi.
+      sfProductSearch.oninput = ()=>{
+        saleForm.productSearchQuery = sfProductSearch.value;
+        const resultsEl = document.getElementById('sf_product_results');
+        if(!resultsEl) return;
+        const q = sfProductSearch.value.trim();
+        if(q){
+          resultsEl.style.display = '';
+          resultsEl.innerHTML = buildProductSearchResultsHTML(data, sfProductSearch.value);
+          bindProductPickHandlers();
+        } else {
+          resultsEl.style.display = 'none';
+          resultsEl.innerHTML = '';
+        }
       };
-    });
+    }
     const sfProductChange = document.getElementById('sf_product_change');
     if(sfProductChange) sfProductChange.onclick = ()=>{
       saleForm.selProductId = ''; saleForm.productSearchQuery = '';
