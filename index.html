@@ -687,7 +687,7 @@ function t(k){ return (STR[state.lang] && STR[state.lang][k]) || k; }
 
 /* ============ STATE ============ */
 const todayStr = ()=> new Date().toISOString().slice(0,10);
-const APP_VERSION = "2026-08-18-t"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
+const APP_VERSION = "2026-08-18-u"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
 let updateAvailable = false;
 let state = { lang:'uz', theme:'sapphire', session:null, page:'dashboard', partnerTab:'customers', currency:'uzs', dateFrom: todayStr(), dateTo: todayStr(), dashPeriod:'today' };
 
@@ -1069,7 +1069,7 @@ function buildDailyReportText(data, dateStr){
   const nasiya = sales.reduce((s,x)=>s+Number(x.nasiyaAmount||0),0);
   const sofFoyda = sales.filter(x=>Number(x.nasiyaAmount||0)<=0 || x.paid).reduce((s,x)=>{
     const itemProfit = (x.items||[]).reduce((s2,it)=>{
-      const prod = data.products.find(p=>p.id===it.productId || p.name===it.productName);
+      const prod = data.products.find(p=>p.id===it.productId) || data.products.find(p=>p.name===it.productName);
       const cost = prod ? (prod.costCurrency==='usd' ? Number(prod.cost||0)*FX_RATE : Number(prod.cost||0)) : 0;
       return s2 + (Number(it.price||0)-cost) * Number(it.qty||0);
     },0);
@@ -1448,7 +1448,7 @@ function modalProfitBreakdown(data){
   const rows = [];
   sales.forEach(s=>{
     (s.items||[]).forEach(it=>{
-      const prod = data.products.find(p=>p.id===it.productId || p.name===it.productName);
+      const prod = data.products.find(p=>p.id===it.productId) || data.products.find(p=>p.name===it.productName);
       const costUZS = prod ? (prod.costCurrency==='usd' ? Number(prod.cost||0)*FX_RATE : Number(prod.cost||0)) : 0;
       const lineProfit = (Number(it.price||0)-costUZS) * Number(it.qty||0);
       rows.push({
@@ -1499,7 +1499,7 @@ function renderDashboard(data){
   const nasiya = sales.reduce((s,x)=>s+Number(x.nasiyaAmount||0),0);
   const sofFoyda = sales.filter(x=>Number(x.nasiyaAmount||0)<=0 || x.paid).reduce((s,x)=>{
     const itemProfit = (x.items||[]).reduce((s2,it)=>{
-      const prod = data.products.find(p=>p.id===it.productId || p.name===it.productName);
+      const prod = data.products.find(p=>p.id===it.productId) || data.products.find(p=>p.name===it.productName);
       const cost = prod ? (prod.costCurrency==='usd' ? Number(prod.cost||0)*FX_RATE : Number(prod.cost||0)) : 0;
       return s2 + (Number(it.price||0)-cost) * Number(it.qty||0);
     },0);
