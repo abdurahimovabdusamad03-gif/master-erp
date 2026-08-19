@@ -378,6 +378,7 @@ uz:{app_name:"Master ERP", app_tag:"ERP TIZIMI", login:"Kirish", register:"Ro'yx
   jami:"Jami", variety:"xil", cost_value:"Tannarx", sale_value:"Sotish", filter_all:"Barchasi", filter_store:"Do'kon", filter_warehouse:"Ombor",
   search_products_ph:"Nomi, modeli, shtrix-kod...", in_store:"Do'konda", in_warehouse:"Omborda", in_both:"Ikkalasida", ta_rulon:"ta rulon",
   import_success:"{n} ta tovar import qilindi", import_failed:"Faylni o'qib bo'lmadi", rolls_count_short:"rulon",
+  import_merged:"ta mavjud tovarga qo'shildi (dublikat yaratilmadi)", dup_product_warning:"\"{name}\" nomli tovar allaqachon mavjud! Baribir yangi (alohida) yozuv sifatida qo'shishni xohlaysizmi? Aksincha, mavjud tovarni tahrirlashni tavsiya qilamiz.",
   save_failed:"Saqlashda xatolik. Internetni tekshirib, birozdan so'ng qayta urinib ko'ring. Davom etsa, sahifani yangilang.", loading:"Yuklanmoqda...", session_lost:"Sessiya topilmadi, qayta kiring",
   memory_fallback_note:"Diqqat: saqlash tizimi javob bermayapti. Ilova hozircha vaqtinchalik xotirada ishlaydi — sahifani yangilasangiz ma'lumotlar yo'qolishi mumkin.",
   save_failed_detail:"SAQLANMADI! Internet aloqasini tekshiring va qayta urining. Xato",
@@ -509,6 +510,7 @@ ru:{app_name:"Master ERP", app_tag:"ERP СИСТЕМА", login:"Войти", reg
   jami:"Всего", variety:"видов", cost_value:"Себестоимость", sale_value:"Продажа", filter_all:"Все", filter_store:"Магазин", filter_warehouse:"Склад",
   search_products_ph:"Название, модель, штрих-код...", in_store:"В магазине", in_warehouse:"На складе", in_both:"В обоих", ta_rulon:"рул.",
   import_success:"Импортировано {n} товаров", import_failed:"Не удалось прочитать файл", rolls_count_short:"рул",
+  import_merged:"добавлено к существующим товарам (дубликаты не созданы)", dup_product_warning:"Товар \"{name}\" уже существует! Всё равно создать новую (отдельную) запись? Рекомендуем редактировать существующий товар.",
   save_failed:"Ошибка при сохранении, попробуйте снова", loading:"Загрузка...", session_lost:"Сессия не найдена, войдите снова",
   memory_fallback_note:"Внимание: система хранения не отвечает. Приложение временно работает в памяти — при обновлении страницы данные могут быть потеряны.",
   save_failed_detail:"НЕ СОХРАНЕНО! Проверьте интернет-соединение и повторите. Ошибка",
@@ -640,6 +642,7 @@ en:{app_name:"Master ERP", app_tag:"ERP SYSTEM", login:"Sign in", register:"Regi
   jami:"Total", variety:"types", cost_value:"Cost value", sale_value:"Sale value", filter_all:"All", filter_store:"Store", filter_warehouse:"Warehouse",
   search_products_ph:"Name, model, barcode...", in_store:"In store", in_warehouse:"In warehouse", in_both:"In both", ta_rulon:"rolls",
   import_success:"{n} products imported", import_failed:"Could not read the file", rolls_count_short:"rolls",
+  import_merged:"merged into existing products (no duplicates created)", dup_product_warning:"A product named \"{name}\" already exists! Create a new (separate) entry anyway? We recommend editing the existing product instead.",
   save_failed:"Save failed, please try again", loading:"Loading...", session_lost:"Session not found, please sign in again",
   memory_fallback_note:"Note: the storage system isn't responding. The app is temporarily running in memory — data may be lost if you refresh the page.",
   save_failed_detail:"NOT SAVED! Check your internet connection and try again. Error",
@@ -687,7 +690,7 @@ function t(k){ return (STR[state.lang] && STR[state.lang][k]) || k; }
 
 /* ============ STATE ============ */
 const todayStr = ()=> new Date().toISOString().slice(0,10);
-const APP_VERSION = "2026-08-18-u"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
+const APP_VERSION = "2026-08-18-w"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
 let updateAvailable = false;
 let state = { lang:'uz', theme:'sapphire', session:null, page:'dashboard', partnerTab:'customers', currency:'uzs', dateFrom: todayStr(), dateTo: todayStr(), dashPeriod:'today' };
 
@@ -1787,14 +1790,63 @@ function buildProductSearchResultsHTML(data, query){
       </div>`;
   }).join('');
 }
-function renderSales(data){
-  const product = data.products.find(p=>p.id===saleForm.selProductId);
-  const cartTotal = saleCart.reduce((s,i)=>s+i.total,0);
+function buildSalesHistoryHTML(data, history){
+  return history.length ? history.map(s=>{
+        const badge = s.nasiyaAmount>0 && !s.karta && !s.naqdAmount ? '' : '';
+        let payLabel = t('mixed'), payClass='badge-muted';
+        if(s.naqdAmount>0 && !s.kartaAmount && !s.nasiyaAmount){ payLabel=t('naqd'); payClass='badge-accent'; }
+        else if(s.kartaAmount>0 && !s.naqdAmount && !s.nasiyaAmount){ payLabel=t('karta'); payClass='badge-accent'; }
+        else if(s.nasiyaAmount>0 && !s.naqdAmount && !s.kartaAmount){ payLabel=t('nasiya'); payClass='badge-accent'; }
+        return `
+        <div style="padding:14px 0; border-bottom:1px solid var(--border);">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
+            <div>
+              <div style="font-weight:800; color:var(--accent-dim); font-size:13.5px;">${s.invoiceNo||'—'}</div>
+              <div style="font-weight:700; font-size:14px; margin-top:3px;">${s.customer || 'Oddiy xaridor'}</div>
+              <div style="font-size:11.5px; color:var(--muted); margin-top:2px;">${s.date}</div>
+            </div>
+            <div style="text-align:right;">
+              <span class="badge ${payClass}">${payLabel}</span>
+              <div class="mono" style="font-weight:800; color:var(--success); font-size:15px; margin-top:5px;">${money(s.total)} UZS</div>
+            </div>
+          </div>
+          <div style="background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:10px 12px; margin-top:10px;">
+            ${(s.items||[]).map(i=>`
+              <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:5px 0; ${(s.items.indexOf(i)>0)?'border-top:1px solid var(--border);':''}">
+                <div style="min-width:0;">
+                  <div style="font-weight:700; font-size:12.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${i.productName}${i.productModel?` <span style="color:var(--accent-dim); font-weight:600;">(${i.productModel})</span>`:''}</div>
+                  <div style="font-size:11px; color:var(--muted); margin-top:1px;">${i.qty}${i.unit} × ${money(i.price)}</div>
+                </div>
+                <div class="mono" style="font-weight:700; font-size:12.5px; flex-shrink:0;">${money(i.total)}</div>
+              </div>
+            `).join('') || `<div style="font-size:11.5px; color:var(--muted);">—</div>`}
+          </div>
+          <div style="display:flex; gap:8px; margin-top:10px;">
+            <button class="btn-danger btn-sm" data-return-sale="${s.id}">↺ ${t('return_sale')}</button>
+            <button class="btn-ghost btn-sm" data-print-sale="${s.id}">🖨 ${t('print_receipt')}</button>
+          </div>
+        </div>`;
+      }).join('') : `<div class="empty-state"><div class="em-icon">🧾</div>${t('empty_sales')}</div>`;
+}
+function filterSalesHistory(data){
   const searchLower = saleSearch.trim().toLowerCase();
-  const history = [...data.sales].reverse().filter(s=>{
+  return [...data.sales].reverse().filter(s=>{
     if(!searchLower) return true;
     return (s.customer||'').toLowerCase().includes(searchLower) || (s.invoiceNo||'').toLowerCase().includes(searchLower);
   });
+}
+function bindSalesHistoryHandlers(data){
+  document.querySelectorAll('#salesHistoryList [data-return-sale]').forEach(b=>{
+    b.onclick = ()=>returnSale(data, b.dataset.returnSale);
+  });
+  document.querySelectorAll('#salesHistoryList [data-print-sale]').forEach(b=>{
+    b.onclick = ()=>printReceipt(data, b.dataset.printSale);
+  });
+}
+function renderSales(data){
+  const product = data.products.find(p=>p.id===saleForm.selProductId);
+  const cartTotal = saleCart.reduce((s,i)=>s+i.total,0);
+  const history = filterSalesHistory(data);
 
   return `
     <div class="card" style="margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
@@ -1917,42 +1969,7 @@ function renderSales(data){
     <div class="card">
       <h3 style="font-size:16.5px; margin-bottom:14px;">📄 ${t('sales_history')}</h3>
       <input id="sf_search" placeholder="🔎 ${t('search_ph')}" value="${saleSearch}" style="margin-bottom:14px;">
-      ${history.length ? history.map(s=>{
-        const badge = s.nasiyaAmount>0 && !s.karta && !s.naqdAmount ? '' : '';
-        let payLabel = t('mixed'), payClass='badge-muted';
-        if(s.naqdAmount>0 && !s.kartaAmount && !s.nasiyaAmount){ payLabel=t('naqd'); payClass='badge-accent'; }
-        else if(s.kartaAmount>0 && !s.naqdAmount && !s.nasiyaAmount){ payLabel=t('karta'); payClass='badge-accent'; }
-        else if(s.nasiyaAmount>0 && !s.naqdAmount && !s.kartaAmount){ payLabel=t('nasiya'); payClass='badge-accent'; }
-        return `
-        <div style="padding:14px 0; border-bottom:1px solid var(--border);">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
-            <div>
-              <div style="font-weight:800; color:var(--accent-dim); font-size:13.5px;">${s.invoiceNo||'—'}</div>
-              <div style="font-weight:700; font-size:14px; margin-top:3px;">${s.customer || 'Oddiy xaridor'}</div>
-              <div style="font-size:11.5px; color:var(--muted); margin-top:2px;">${s.date}</div>
-            </div>
-            <div style="text-align:right;">
-              <span class="badge ${payClass}">${payLabel}</span>
-              <div class="mono" style="font-weight:800; color:var(--success); font-size:15px; margin-top:5px;">${money(s.total)} UZS</div>
-            </div>
-          </div>
-          <div style="background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:10px 12px; margin-top:10px;">
-            ${(s.items||[]).map(i=>`
-              <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:5px 0; ${(s.items.indexOf(i)>0)?'border-top:1px solid var(--border);':''}">
-                <div style="min-width:0;">
-                  <div style="font-weight:700; font-size:12.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${i.productName}${i.productModel?` <span style="color:var(--accent-dim); font-weight:600;">(${i.productModel})</span>`:''}</div>
-                  <div style="font-size:11px; color:var(--muted); margin-top:1px;">${i.qty}${i.unit} × ${money(i.price)}</div>
-                </div>
-                <div class="mono" style="font-weight:700; font-size:12.5px; flex-shrink:0;">${money(i.total)}</div>
-              </div>
-            `).join('') || `<div style="font-size:11.5px; color:var(--muted);">—</div>`}
-          </div>
-          <div style="display:flex; gap:8px; margin-top:10px;">
-            <button class="btn-danger btn-sm" data-return-sale="${s.id}">↺ ${t('return_sale')}</button>
-            <button class="btn-ghost btn-sm" data-print-sale="${s.id}">🖨 ${t('print_receipt')}</button>
-          </div>
-        </div>`;
-      }).join('') : `<div class="empty-state"><div class="em-icon">🧾</div>${t('empty_sales')}</div>`}
+      <div id="salesHistoryList">${buildSalesHistoryHTML(data, history)}</div>
     </div>
   `;
 }
@@ -1970,7 +1987,57 @@ function productTotals(p){
   const whRolls = p.rollMode ? (p.wRolls||[]).length : null;
   return { storeQty, whQty, storeRolls, whRolls, total: storeQty+whQty };
 }
-function renderWarehouse(data){
+function buildWarehouseProductListHTML(data, products){
+  return products.length ? products.map(p=>{
+      const totals = productTotals(p);
+      const locBadge = totals.storeQty>0 && totals.whQty>0 ? `<span class="badge badge-accent">${t('in_both')}</span>` : totals.storeQty>0 ? `<span class="badge badge-success">🏬 ${t('in_store')}</span>` : totals.whQty>0 ? `<span class="badge badge-muted">🏭 ${t('in_warehouse')}</span>` : `<span class="badge badge-muted">—</span>`;
+      const isLow = totals.total <= Number(p.minStock||3);
+      const priceLabel = p.priceCurrency==='usd' ? `$${p.price}` : money(p.price)+' UZS';
+      return `
+      <div class="card" style="margin-bottom:12px;">
+        <div style="display:flex; gap:12px; align-items:flex-start;">
+          <div style="width:52px; height:52px; border-radius:10px; background:var(--panel2); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; overflow:hidden; flex-shrink:0;">
+            ${p.image ? `<img src="${p.image}" style="width:100%; height:100%; object-fit:cover;">` : '📦'}
+          </div>
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <span style="font-weight:800; font-size:18px;">${p.name}</span>
+              <span class="badge badge-accent">${p.unit}</span>
+              ${isLow ? `<span class="badge" style="background:rgba(226,59,84,0.14); color:var(--danger);">⚠ ${t('low_stock')}</span>` : ''}
+            </div>
+            ${p.model ? `<div style="font-size:14.5px; font-weight:700; color:var(--accent-dim); margin-top:2px;">${p.model}</div>` : ''}
+            ${p.barcode ? `<div style="font-size:11px; color:var(--muted); margin-top:2px;" class="mono">▤ ${p.barcode}</div>` : ''}
+          </div>
+          <div>${locBadge}</div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px;">
+          <div style="background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:10px 12px;">
+            <div style="font-size:10.5px; color:var(--muted); text-transform:uppercase; font-weight:700; margin-bottom:4px;">🏭 ${t('warehouse')}</div>
+            <div style="font-weight:800; font-size:15px;">${totals.whQty} ${p.unit}</div>
+            ${p.rollMode ? `<div style="margin-top:6px; display:flex; gap:5px; flex-wrap:wrap;">${(p.wRolls||[]).map(r=>`<span class="badge badge-muted">${r.length}m</span>`).join('') || '—'}</div>` : ''}
+          </div>
+          <div style="background:rgba(24,168,118,0.08); border:1px solid rgba(24,168,118,0.3); border-radius:10px; padding:10px 12px;">
+            <div style="font-size:10.5px; color:var(--success); text-transform:uppercase; font-weight:700; margin-bottom:4px;">🏬 ${t('filter_store')}</div>
+            <div style="font-weight:800; font-size:15px; color:var(--success);">${totals.storeQty} ${p.unit}</div>
+            ${p.rollMode ? `<div style="margin-top:6px; display:flex; gap:5px; flex-wrap:wrap;">${(p.rolls||[]).map(r=>`<span class="badge" style="background:rgba(24,168,118,0.15); color:var(--success);">${r.length}m</span>`).join('') || '—'}</div>` : ''}
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px; padding-top:12px; border-top:1px solid var(--border);">
+          <div style="font-weight:800; color:var(--success);" class="mono">${priceLabel}</div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn-ghost btn-sm" data-print-barcode="${p.id}">🏷 ${t('barcode')}</button>
+            <button class="btn-ghost btn-sm" data-defect="${p.id}" style="color:var(--danger); border-color:rgba(226,59,84,0.35);">⚠ ${t('defect_btn')}</button>
+            <button class="btn-ghost btn-sm" data-view-product="${p.id}">👁 ${t('details')}</button>
+            <button class="btn-danger btn-sm" data-del-product="${p.id}">🗑</button>
+          </div>
+        </div>
+      </div>
+      `;
+    }).join('') : `<div class="card empty-state"><div class="em-icon">📦</div>${t('empty_products')}</div>`;
+}
+function filterWarehouseProducts(data){
   const search = whSearch.trim().toLowerCase();
   let products = data.products.filter(p=>{
     if(!search) return true;
@@ -1978,6 +2045,10 @@ function renderWarehouse(data){
   });
   if(whFilter==='store') products = products.filter(p=>productTotals(p).storeQty>0);
   if(whFilter==='warehouse') products = products.filter(p=>productTotals(p).whQty>0);
+  return products;
+}
+function renderWarehouse(data){
+  const products = filterWarehouseProducts(data);
 
   const totalQty = data.products.reduce((s,p)=>s+productTotals(p).total,0);
   const totalCostUZS = data.products.reduce((s,p)=>{
@@ -2040,54 +2111,7 @@ function renderWarehouse(data){
     </div>
     <input id="whSearch" placeholder="🔎 ${t('search_products_ph')}" value="${whSearch}" style="margin-bottom:16px;">
 
-    ${products.length ? products.map(p=>{
-      const totals = productTotals(p);
-      const locBadge = totals.storeQty>0 && totals.whQty>0 ? `<span class="badge badge-accent">${t('in_both')}</span>` : totals.storeQty>0 ? `<span class="badge badge-success">🏬 ${t('in_store')}</span>` : totals.whQty>0 ? `<span class="badge badge-muted">🏭 ${t('in_warehouse')}</span>` : `<span class="badge badge-muted">—</span>`;
-      const isLow = totals.total <= Number(p.minStock||3);
-      const priceLabel = p.priceCurrency==='usd' ? `$${p.price}` : money(p.price)+' UZS';
-      return `
-      <div class="card" style="margin-bottom:12px;">
-        <div style="display:flex; gap:12px; align-items:flex-start;">
-          <div style="width:52px; height:52px; border-radius:10px; background:var(--panel2); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; overflow:hidden; flex-shrink:0;">
-            ${p.image ? `<img src="${p.image}" style="width:100%; height:100%; object-fit:cover;">` : '📦'}
-          </div>
-          <div style="flex:1; min-width:0;">
-            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-              <span style="font-weight:800; font-size:18px;">${p.name}</span>
-              <span class="badge badge-accent">${p.unit}</span>
-              ${isLow ? `<span class="badge" style="background:rgba(226,59,84,0.14); color:var(--danger);">⚠ ${t('low_stock')}</span>` : ''}
-            </div>
-            ${p.model ? `<div style="font-size:14.5px; font-weight:700; color:var(--accent-dim); margin-top:2px;">${p.model}</div>` : ''}
-            ${p.barcode ? `<div style="font-size:11px; color:var(--muted); margin-top:2px;" class="mono">▤ ${p.barcode}</div>` : ''}
-          </div>
-          <div>${locBadge}</div>
-        </div>
-
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px;">
-          <div style="background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:10px 12px;">
-            <div style="font-size:10.5px; color:var(--muted); text-transform:uppercase; font-weight:700; margin-bottom:4px;">🏭 ${t('warehouse')}</div>
-            <div style="font-weight:800; font-size:15px;">${totals.whQty} ${p.unit}</div>
-            ${p.rollMode ? `<div style="margin-top:6px; display:flex; gap:5px; flex-wrap:wrap;">${(p.wRolls||[]).map(r=>`<span class="badge badge-muted">${r.length}m</span>`).join('') || '—'}</div>` : ''}
-          </div>
-          <div style="background:rgba(24,168,118,0.08); border:1px solid rgba(24,168,118,0.3); border-radius:10px; padding:10px 12px;">
-            <div style="font-size:10.5px; color:var(--success); text-transform:uppercase; font-weight:700; margin-bottom:4px;">🏬 ${t('filter_store')}</div>
-            <div style="font-weight:800; font-size:15px; color:var(--success);">${totals.storeQty} ${p.unit}</div>
-            ${p.rollMode ? `<div style="margin-top:6px; display:flex; gap:5px; flex-wrap:wrap;">${(p.rolls||[]).map(r=>`<span class="badge" style="background:rgba(24,168,118,0.15); color:var(--success);">${r.length}m</span>`).join('') || '—'}</div>` : ''}
-          </div>
-        </div>
-
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px; padding-top:12px; border-top:1px solid var(--border);">
-          <div style="font-weight:800; color:var(--success);" class="mono">${priceLabel}</div>
-          <div style="display:flex; gap:8px;">
-            <button class="btn-ghost btn-sm" data-print-barcode="${p.id}">🏷 ${t('barcode')}</button>
-            <button class="btn-ghost btn-sm" data-defect="${p.id}" style="color:var(--danger); border-color:rgba(226,59,84,0.35);">⚠ ${t('defect_btn')}</button>
-            <button class="btn-ghost btn-sm" data-view-product="${p.id}">👁 ${t('details')}</button>
-            <button class="btn-danger btn-sm" data-del-product="${p.id}">🗑</button>
-          </div>
-        </div>
-      </div>
-      `;
-    }).join('') : `<div class="card empty-state"><div class="em-icon">📦</div>${t('empty_products')}</div>`}
+    <div id="whProductList">${buildWarehouseProductListHTML(data, products)}</div>
   `;
 }
 
@@ -4060,6 +4084,13 @@ async function modalAddProduct(data){
     if(!barcode) barcode = genBarcode();
     if(!name || !price) return toast(t('fill_all'));
 
+    // Dublikat tekshiruvi - bir xil nomli (va modelga ega) tovar allaqachon bormi
+    const dup = data.products.find(p=>p.name.trim().toLowerCase()===name.toLowerCase() && (p.model||'').trim().toLowerCase()===model.toLowerCase());
+    if(dup){
+      const confirmMsg = t('dup_product_warning').replace('{name}', name);
+      if(!confirm(confirmMsg)) return;
+    }
+
     const product = {
       id:uid(), name, model, unit, barcode, minStock, cost, costCurrency, price, priceCurrency, rollMode, image: uploadedImage,
       stock:0, rolls:[], wStock:0, wRolls:[]
@@ -4202,7 +4233,7 @@ function openImportModal(data){
         const sheet = wb.Sheets[wb.SheetNames[0]];
         const rows = window.XLSX.utils.sheet_to_json(sheet, { header:1, raw:true, defval:'' });
         console.log('Import: fayldan o\'qilgan qatorlar', rows);
-        let count = 0, skipped = 0;
+        let count = 0, skipped = 0, merged = 0;
         rows.forEach((row, idx)=>{
           if(idx===0) return; // sarlavha qatorini o'tkazib yuboramiz
           const isRowEmpty = !row || row.every(c=>String(c).trim()==='');
@@ -4228,6 +4259,24 @@ function openImportModal(data){
             totalQty = parseNum(qtyRaw);
           }
 
+          // DUBLIKAT TEKSHIRUVI: bir xil nom+model bo'lsa, yangi yozuv yaratmaymiz - mavjudiga qo'shamiz
+          const existing = data.products.find(p=>p.name.trim().toLowerCase()===name.toLowerCase() && (p.model||'').trim().toLowerCase()===model.toLowerCase());
+          if(existing){
+            existing.cost = cost || existing.cost;
+            existing.costCurrency = costCur;
+            existing.price = price || existing.price;
+            existing.priceCurrency = priceCur;
+            if(isRoll){
+              if(importDest==='store'){ existing.rolls = (existing.rolls||[]).concat(rolls); existing.stock = existing.rolls.reduce((s,r)=>s+r.length,0); }
+              else { existing.wRolls = (existing.wRolls||[]).concat(rolls); existing.wStock = existing.wRolls.reduce((s,r)=>s+r.length,0); }
+            } else {
+              if(importDest==='store') existing.stock = Number(existing.stock||0)+totalQty;
+              else existing.wStock = Number(existing.wStock||0)+totalQty;
+            }
+            merged++;
+            return;
+          }
+
           const product = {
             id:uid(), name, model, unit, barcode:genBarcode(), minStock:3,
             cost, costCurrency:costCur, price, priceCurrency:priceCur,
@@ -4244,7 +4293,7 @@ function openImportModal(data){
           data.products.push(product);
           count++;
         });
-        if(count===0){
+        if(count===0 && merged===0){
           statusEl.textContent = '';
           toast('⚠️ ' + t('import_nothing_found') + ` (${rows.length} ${t('rows_read')})`);
           return;
@@ -4252,7 +4301,7 @@ function openImportModal(data){
         const saved = await saveCompanyData(state.session.companyId, data);
         if(!saved) return;
         closeModal();
-        toast(t('import_success').replace('{n}', count) + (skipped ? ` (${skipped} ${t('import_skipped')})` : ''));
+        toast(t('import_success').replace('{n}', count) + (merged ? `, ${merged} ${t('import_merged')}` : '') + (skipped ? ` (${skipped} ${t('import_skipped')})` : ''));
         render();
       }catch(e){ console.error('import error', e); statusEl.textContent=''; toast('⚠️ ' + t('import_failed') + ': ' + (e.message||e)); }
     };
@@ -4480,6 +4529,22 @@ async function modalAddEmployee(data){
 }
 
 /* ============ EVENT BINDING ============ */
+/* Ombor sahifasidagi tovar kartalari tugmalarini bog'laydi - qidiruv jarrohlik yangilanganda
+   ham qayta chaqiriladi, shuning uchun alohida funksiya qilib chiqarilgan */
+function bindWarehouseCardHandlers(data){
+  document.querySelectorAll('#whProductList [data-view-product]').forEach(b=>{
+    b.onclick = ()=>modalViewProduct(data, b.dataset.viewProduct);
+  });
+  document.querySelectorAll('#whProductList [data-defect]').forEach(b=>{
+    b.onclick = ()=>modalDefectStock(data, b.dataset.defect);
+  });
+  document.querySelectorAll('#whProductList [data-print-barcode]').forEach(b=>{
+    b.onclick = ()=>modalPrintBarcode(data, b.dataset.printBarcode);
+  });
+  document.querySelectorAll('#whProductList [data-del-product]').forEach(b=>{
+    b.onclick = async ()=>{ data.products = data.products.filter(p=>p.id!==b.dataset.delProduct); await saveCompanyData(state.session.companyId,data); toast(t('deleted')); render(); };
+  });
+}
 function bindShellEvents(data){
   document.querySelectorAll('[data-page]').forEach(el=>{
     el.onclick = ()=>{ state.page = el.dataset.page; render(); };
@@ -4548,7 +4613,19 @@ function bindShellEvents(data){
     const openRestock = document.getElementById('openRestockModal');
     if(openRestock) openRestock.onclick = ()=>openRestockModal(data);
     const whSearchEl = document.getElementById('whSearch');
-    if(whSearchEl){ whSearchEl.oninput = ()=>{ whSearch = whSearchEl.value; debouncedRender(); }; if(whSearch){ setTimeout(()=>{ try{ whSearchEl.focus(); whSearchEl.selectionStart = whSearchEl.value.length; }catch(e){} }, 0); } }
+    if(whSearchEl){
+      // MUHIM: bu yerda render()/debouncedRender() CHAQIRILMAYDI - faqat ro'yxat qismini
+      // (kichik ichki div) yangilaymiz. Shunda input maydoni hech qachon qayta yaratilmaydi,
+      // fokus va mobil klaviatura hech qachon yo'qolmaydi/pirillamaydi.
+      whSearchEl.oninput = ()=>{
+        whSearch = whSearchEl.value;
+        const listEl = document.getElementById('whProductList');
+        if(listEl){
+          listEl.innerHTML = buildWarehouseProductListHTML(data, filterWarehouseProducts(data));
+          bindWarehouseCardHandlers(data);
+        }
+      };
+    }
     document.querySelectorAll('[data-whfilter]').forEach(b=>{
       b.onclick = ()=>{ whFilter = b.dataset.whfilter; render(); };
     });
@@ -4863,28 +4940,21 @@ function bindShellEvents(data){
     const btnSaveSale = document.getElementById('btnSaveSale');
     if(btnSaveSale) btnSaveSale.onclick = ()=>finalizeSale(data);
     const sfSearch = document.getElementById('sf_search');
-    if(sfSearch){ sfSearch.oninput = ()=>{ saleSearch = sfSearch.value; debouncedRender(); }; if(saleSearch){ setTimeout(()=>{ try{ sfSearch.focus(); sfSearch.selectionStart = sfSearch.value.length; }catch(e){} }, 0); } }
-    document.querySelectorAll('[data-return-sale]').forEach(b=>{
-      b.onclick = ()=>returnSale(data, b.dataset.returnSale);
-    });
-    document.querySelectorAll('[data-print-sale]').forEach(b=>{
-      b.onclick = ()=>printReceipt(data, b.dataset.printSale);
-    });
+    if(sfSearch){
+      sfSearch.oninput = ()=>{
+        saleSearch = sfSearch.value;
+        const listEl = document.getElementById('salesHistoryList');
+        if(listEl){
+          listEl.innerHTML = buildSalesHistoryHTML(data, filterSalesHistory(data));
+          bindSalesHistoryHandlers(data);
+        }
+      };
+    }
+    bindSalesHistoryHandlers(data);
 
-    document.querySelectorAll('[data-view-product]').forEach(b=>{
-      b.onclick = ()=>modalViewProduct(data, b.dataset.viewProduct);
-    });
-    document.querySelectorAll('[data-defect]').forEach(b=>{
-      b.onclick = ()=>modalDefectStock(data, b.dataset.defect);
-    });
+    bindWarehouseCardHandlers(data);
     const whDefectCard = document.getElementById('whDefectCard');
     if(whDefectCard) whDefectCard.onclick = ()=>modalDefectList(data, t('total_defect'));
-    document.querySelectorAll('[data-print-barcode]').forEach(b=>{
-      b.onclick = ()=>modalPrintBarcode(data, b.dataset.printBarcode);
-    });
-    document.querySelectorAll('[data-del-product]').forEach(b=>{
-      b.onclick = async ()=>{ data.products = data.products.filter(p=>p.id!==b.dataset.delProduct); await saveCompanyData(state.session.companyId,data); toast(t('deleted')); render(); };
-    });
     document.querySelectorAll('[data-del-partner]').forEach(b=>{
       b.onclick = async ()=>{ data.partners = data.partners.filter(p=>p.id!==b.dataset.delPartner); await saveCompanyData(state.session.companyId,data); toast(t('deleted')); render(); };
     });
