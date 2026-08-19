@@ -367,6 +367,9 @@ uz:{app_name:"Master ERP", app_tag:"ERP TIZIMI", login:"Kirish", register:"Ro'yx
   defect_btn:"Brak", defect_title:"Brak/Defekt tovarni hisobdan chiqarish", defect_qty:"Brak miqdori", defect_reason:"Sababi", defect_reason_ph:"Masalan: nam bo'lib qolgan, sinib qolgan...",
   estimated_loss:"Taxminiy zarar", defect_confirm:"Hisobdan chiqarish", defect_done:"Brak hisobdan chiqarildi va rasxodga yozildi", not_enough_stock:"Qoldiqda yetarli emas",
   defect_expense_label:"Brak/Defekt", defect_category:"Brak", optional:"ixtiyoriy",
+  defect_monthly:"Brak (bu oy)", total_defect:"Umumiy brak", defect_count_label:"ta yozuv", view_details:"Batafsil",
+  barcode_lib_failed:"Shtrix kod kutubxonasi yuklanmadi - internetni tekshiring",
+  barcode_settings:"Shtrix kod sozlamalari", barcode_settings_hint:"Avtomatik shtrix kod formati va yorliq o'lchami", barcode_prefix:"Avtomatik prefiks", barcode_prefix_hint:"Yangi tovar qo'shilganda shtrix kod shu raqam bilan boshlanadi",
   transfer_title:"Omborlar orasida o'tkazish", transfer_product:"Tovarni tanlang", transfer_from:"Qayerdan", transfer_to:"Qayerga",
   transfer_qty:"Miqdor", transfer_roll_pick:"Rulonni tanlang", transfer_btn:"O'tkazish", transfer_done:"Tovar o'tkazildi",
   jami:"Jami", variety:"xil", cost_value:"Tannarx", sale_value:"Sotish", filter_all:"Barchasi", filter_store:"Do'kon", filter_warehouse:"Ombor",
@@ -492,6 +495,9 @@ ru:{app_name:"Master ERP", app_tag:"ERP СИСТЕМА", login:"Войти", reg
   defect_btn:"Брак", defect_title:"Списать бракованный товар", defect_qty:"Количество брака", defect_reason:"Причина", defect_reason_ph:"Например: намок, сломан...",
   estimated_loss:"Примерный убыток", defect_confirm:"Списать", defect_done:"Брак списан и добавлен в расходы", not_enough_stock:"Недостаточно на остатке",
   defect_expense_label:"Брак/Дефект", defect_category:"Брак", optional:"необязательно",
+  defect_monthly:"Брак (за этот месяц)", total_defect:"Всего брака", defect_count_label:"записей", view_details:"Подробнее",
+  barcode_lib_failed:"Библиотека штрих-кодов не загрузилась - проверьте интернет",
+  barcode_settings:"Настройки штрих-кода", barcode_settings_hint:"Формат автоматического штрих-кода и размер этикетки", barcode_prefix:"Автопрефикс", barcode_prefix_hint:"Новый штрих-код товара будет начинаться с этого числа",
   transfer_title:"Перемещение между складами", transfer_product:"Выберите товар", transfer_from:"Откуда", transfer_to:"Куда",
   transfer_qty:"Количество", transfer_roll_pick:"Выберите рулон", transfer_btn:"Переместить", transfer_done:"Товар перемещён",
   jami:"Всего", variety:"видов", cost_value:"Себестоимость", sale_value:"Продажа", filter_all:"Все", filter_store:"Магазин", filter_warehouse:"Склад",
@@ -617,6 +623,9 @@ en:{app_name:"Master ERP", app_tag:"ERP SYSTEM", login:"Sign in", register:"Regi
   defect_btn:"Defect", defect_title:"Write off defective stock", defect_qty:"Defect quantity", defect_reason:"Reason", defect_reason_ph:"E.g: got wet, broken...",
   estimated_loss:"Estimated loss", defect_confirm:"Write off", defect_done:"Defect written off and added to expenses", not_enough_stock:"Not enough stock",
   defect_expense_label:"Defect", defect_category:"Defect", optional:"optional",
+  defect_monthly:"Defects (this month)", total_defect:"Total defects", defect_count_label:"records", view_details:"View details",
+  barcode_lib_failed:"Barcode library failed to load - check your internet",
+  barcode_settings:"Barcode settings", barcode_settings_hint:"Auto-barcode format and label size", barcode_prefix:"Auto prefix", barcode_prefix_hint:"New product barcodes will start with this number",
   transfer_title:"Transfer between locations", transfer_product:"Select product", transfer_from:"From", transfer_to:"To",
   transfer_qty:"Quantity", transfer_roll_pick:"Select roll", transfer_btn:"Transfer", transfer_done:"Item transferred",
   jami:"Total", variety:"types", cost_value:"Cost value", sale_value:"Sale value", filter_all:"All", filter_store:"Store", filter_warehouse:"Warehouse",
@@ -669,7 +678,7 @@ function t(k){ return (STR[state.lang] && STR[state.lang][k]) || k; }
 
 /* ============ STATE ============ */
 const todayStr = ()=> new Date().toISOString().slice(0,10);
-const APP_VERSION = "2026-08-18-o"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
+const APP_VERSION = "2026-08-18-q"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
 let updateAvailable = false;
 let state = { lang:'uz', theme:'sapphire', session:null, page:'dashboard', partnerTab:'customers', currency:'uzs', dateFrom: todayStr(), dateTo: todayStr(), dashPeriod:'today' };
 
@@ -900,8 +909,9 @@ async function saveCompanyData(companyId, data){
   if(!ok) toast('⚠️ '+t('save_failed'));
   return ok;
 }
+let barcodePrefixDigit = '2';
 function genBarcode(){
-  let d = '2'; // ichki (mahalliy) barcode prefiksi
+  let d = barcodePrefixDigit; // ichki (mahalliy) barcode prefiksi - Sozlamalardan o'zgartiriladi
   for(let i=0;i<11;i++) d += Math.floor(Math.random()*10);
   let sum=0;
   for(let i=0;i<d.length;i++) sum += Number(d[i]) * (i%2===0?1:3);
@@ -1228,6 +1238,7 @@ async function render(){
   } else {
     const data = await getCompanyDataCached(state.session.companyId);
     FX_RATE = Number(data.settings && data.settings.fxRate) || 12700;
+    barcodePrefixDigit = /^[0-9]$/.test((data.settings||{}).barcodePrefix) ? data.settings.barcodePrefix : '2';
     updateAppIdentity(data);
     app.innerHTML = await renderShell(data);
     bindShellEvents(data);
@@ -1438,6 +1449,12 @@ function renderDashboard(data){
     return s + itemProfit;
   },0) - rasxod;
 
+  // Brak/defekt - joriy oy bo'yicha (Dashboard'dagi sana filtridan mustaqil, doim shu oyning o'zi)
+  const monthStart = new Date(); monthStart.setDate(1);
+  const monthStartStr = monthStart.toISOString().slice(0,10);
+  const monthDefects = (data.expenses||[]).filter(e=>isDefectExpense(e) && e.date>=monthStartStr && e.date<=todayStr());
+  const monthDefectTotal = monthDefects.reduce((s,e)=>s+Number(e.amount||0),0);
+
   const chartVals = [naqd, karta, nasiya, rasxod, sofFoyda];
   const chartMax = Math.max(1, ...chartVals.map(v=>Math.abs(v)));
   const chartBars = [
@@ -1506,6 +1523,15 @@ function renderDashboard(data){
       <div class="card stat-card stat-gold"><div class="stat-label">💴 ${t('naqd')}</div><div class="stat-num mono">${fmtMoney(naqd)}</div></div>
       <div class="card stat-card stat-blue"><div class="stat-label">💳 ${t('karta')}</div><div class="stat-num mono">${fmtMoney(karta)}</div></div>
       <div class="card stat-card stat-pink"><div class="stat-label">📝 ${t('nasiya')}</div><div class="stat-num mono">${fmtMoney(nasiya)}</div></div>
+      <div class="card stat-card stat-red" id="dashDefectCard" style="cursor:pointer; grid-column:1/-1;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div class="stat-label">⚠ ${t('defect_monthly')}</div>
+            <div class="stat-num mono">${fmtMoney(monthDefectTotal)}</div>
+          </div>
+          <div style="font-size:11px; color:var(--muted); text-align:right;">${monthDefects.length} ${t('defect_count_label')}<br><span style="text-decoration:underline;">${t('view_details')} →</span></div>
+        </div>
+      </div>
     </div>
 
     <div class="net-banner">
@@ -1898,6 +1924,8 @@ function renderWarehouse(data){
     const priceUZS = p.priceCurrency==='usd' ? Number(p.price||0)*FX_RATE : Number(p.price||0);
     return s + priceUZS*totals.total;
   },0);
+  const allDefects = (data.expenses||[]).filter(isDefectExpense);
+  const totalDefectUZS = allDefects.reduce((s,e)=>s+Number(e.amount||0),0);
 
   return `
     <div class="card" style="margin-bottom:16px;">
@@ -1919,6 +1947,16 @@ function renderWarehouse(data){
       <div class="card stat-card stat-blue"><div class="stat-label">📦 ${t('jami')}</div><div class="stat-num">${money(totalQty)}</div><div style="font-size:11px; color:var(--muted); margin-top:2px;">${data.products.length} ${t('variety')}</div></div>
       <div class="card stat-card stat-gold"><div class="stat-label">💲 ${t('cost_value')}</div><div class="stat-num mono" style="font-size:17px;">${money(totalCostUZS)} UZS</div><div style="font-size:11px; color:var(--muted); margin-top:2px;">≈ $${(totalCostUZS/FX_RATE).toLocaleString('en-US',{maximumFractionDigits:0})}</div></div>
       <div class="card stat-card stat-green"><div class="stat-label">📈 ${t('sale_value')}</div><div class="stat-num mono" style="font-size:17px;">${money(totalSaleUZS)} UZS</div><div style="font-size:11px; color:var(--muted); margin-top:2px;">≈ $${(totalSaleUZS/FX_RATE).toLocaleString('en-US',{maximumFractionDigits:0})}</div></div>
+    </div>
+
+    <div class="card stat-card stat-red" id="whDefectCard" style="cursor:pointer; margin-bottom:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <div class="stat-label">⚠ ${t('total_defect')}</div>
+          <div class="stat-num mono">${money(totalDefectUZS)} UZS</div>
+        </div>
+        <div style="font-size:11px; color:var(--muted); text-align:right;">${allDefects.length} ${t('defect_count_label')}<br><span style="text-decoration:underline;">${t('view_details')} →</span></div>
+      </div>
     </div>
 
     <div class="tabbar" style="margin-bottom:14px;">
@@ -2733,6 +2771,10 @@ async function modalStorePay(data, storeId){
 }
 
 /* ---- MIJOZLAR (CUSTOMERS) ---- */
+/* Brak/defekt xarajatlarni aniqlaydi - eski (til bo'yicha tarjima qilingan category) yozuvlarni ham qamrab oladi */
+function isDefectExpense(e){
+  return e.isDefect === true || e.category==='Brak' || e.category==='Брак' || e.category==='Defect';
+}
 function customerDebtMap(data){
   const map = {};
   data.sales.filter(s=>Number(s.nasiyaAmount||0)>0 && !s.paid).forEach(s=>{
@@ -2949,6 +2991,21 @@ function renderSettings(data){
           </div>
           <button class="btn-3d btn-sm" id="btnOpenReceiptSettings">${t('open')}</button>
         </div>
+      </div>
+
+      <div class="card" style="grid-column:1/-1;">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
+          <div style="width:44px;height:44px;border-radius:12px;background:rgba(122,79,224,0.15); display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;">🏷️</div>
+          <div style="flex:1;">
+            <div style="font-weight:800; font-size:15px;">${t('barcode_settings')}</div>
+            <div style="font-size:11.5px; color:var(--muted);">${t('barcode_settings_hint')}</div>
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:0;"><label>${t('barcode_prefix')}</label>
+          <input id="bc_prefix" maxlength="1" inputmode="numeric" pattern="[0-9]" value="${barcodePrefixDigit}" style="max-width:100px;">
+          <div style="font-size:11px; color:var(--muted); margin-top:4px;">${t('barcode_prefix_hint')}</div>
+        </div>
+        <button class="btn-3d btn-sm" id="btnSaveBarcodeSettings" style="margin-top:12px;">${t('save_settings')}</button>
       </div>
 
       <div class="card" style="grid-column:1/-1; border-color:rgba(226,59,84,0.4);">
@@ -3387,31 +3444,33 @@ async function modalPrintBarcode(data, productId){
   const p = data.products.find(x=>x.id===productId);
   if(!p) return;
   const priceLabel = p.priceCurrency==='usd' ? `$${p.price}` : money(p.price)+' UZS';
+  const jbOk = await loadJsBarcode();
+  const barcodeGraphic = (code)=> jbOk ? renderBarcodeSVG(code) : `<div style="font-size:11px; color:var(--danger);">⚠ ${t('barcode_lib_failed')}</div>`;
   let unitsHtml;
   if(p.rollMode){
     unitsHtml = (p.rolls||[]).length ? (p.rolls||[]).map(r=>`
-      <div style="border:1px dashed var(--border); border-radius:8px; padding:10px; margin-bottom:8px; text-align:center;">
-        <div style="font-weight:800; font-size:13px;">${p.name}${p.model?' · '+p.model:''}</div>
-        <img src="https://barcodeapi.org/api/128/${p.barcode}" style="height:44px; margin:6px auto; display:block;">
-        <div class="mono" style="font-size:10.5px; color:var(--muted);">${p.barcode}</div>
-        <div style="font-weight:700; font-size:12px; margin-top:4px;">${priceLabel}</div>
+      <div style="border:1px dashed var(--border); border-radius:8px; padding:10px; margin-bottom:8px; text-align:center; background:#fff;">
+        <div style="font-weight:800; font-size:13px; color:#000;">${p.name}${p.model?' · '+p.model:''}</div>
+        <div style="margin:6px auto; display:block; max-width:220px;">${barcodeGraphic(p.barcode)}</div>
+        <div class="mono" style="font-size:10.5px; color:#333;">${p.barcode}</div>
+        <div style="font-weight:700; font-size:12px; margin-top:4px; color:#000;">${priceLabel}</div>
         <div style="font-size:11px; color:var(--accent-dim); font-weight:700; margin-top:2px;">🧵 ${t('roll_contains')}: ${r.length} m</div>
       </div>
     `).join('') : `<div class="empty-state">${t('empty_products')}</div>`;
   } else {
     unitsHtml = `
-      <div style="border:1px dashed var(--border); border-radius:8px; padding:10px; text-align:center;">
-        <div style="font-weight:800; font-size:13px;">${p.name}${p.model?' · '+p.model:''}</div>
-        <img src="https://barcodeapi.org/api/128/${p.barcode}" style="height:44px; margin:6px auto; display:block;">
-        <div class="mono" style="font-size:10.5px; color:var(--muted);">${p.barcode}</div>
-        <div style="font-weight:700; font-size:12px; margin-top:4px;">${priceLabel}</div>
+      <div style="border:1px dashed var(--border); border-radius:8px; padding:10px; text-align:center; background:#fff;">
+        <div style="font-weight:800; font-size:13px; color:#000;">${p.name}${p.model?' · '+p.model:''}</div>
+        <div style="margin:6px auto; display:block; max-width:220px;">${barcodeGraphic(p.barcode)}</div>
+        <div class="mono" style="font-size:10.5px; color:#333;">${p.barcode}</div>
+        <div style="font-weight:700; font-size:12px; margin-top:4px; color:#000;">${priceLabel}</div>
       </div>`;
   }
   openModal(`
     <h3 style="margin-bottom:14px;">🏷 ${t('barcode')} — ${p.name}</h3>
-    <div style="max-height:60vh; overflow:auto;">${unitsHtml}</div>
-    <button class="btn-3d" id="m_cancel" style="width:100%; margin-top:14px;">${t('close')}</button>
-    <button class="btn-ghost" id="m_print" style="width:100%; margin-top:8px;">🖨 ${t('print_receipt')}</button>
+    <div class="receipt-print-area" style="max-height:60vh; overflow:auto;">${unitsHtml}</div>
+    <button class="btn-3d no-print" id="m_cancel" style="width:100%; margin-top:14px;">${t('close')}</button>
+    <button class="btn-ghost no-print" id="m_print" style="width:100%; margin-top:8px;">🖨 ${t('print_receipt')}</button>
   `);
   document.getElementById('m_cancel').onclick = closeModal;
   document.getElementById('m_print').onclick = ()=>window.print();
@@ -3524,6 +3583,30 @@ async function modalViewProduct(data, productId){
 /* Rulon tovarlar uchun: har bir rulonni alohida ko'rish, uzunligini o'zgartirish, o'chirish yoki yangi rulon qo'shish */
 /* Brak/defekt tovarni hisobdan chiqarish: qoldiqdan kamaytiradi va tannarx bo'yicha zararni
    avtomatik rasxod sifatida yozadi (Dashboard'dagi sof foyda hisobiga ham ta'sir qiladi) */
+/* Barcha brak/defekt yozuvlarini ro'yxat qilib ko'rsatadi (sarlavha va davr filtri ixtiyoriy) */
+function modalDefectList(data, title, filterFn){
+  const records = (data.expenses||[]).filter(e=>isDefectExpense(e) && (!filterFn || filterFn(e))).sort((a,b)=>b.date.localeCompare(a.date));
+  const total = records.reduce((s,e)=>s+Number(e.amount||0),0);
+  openModal(`
+    <h3 style="margin-bottom:6px; color:var(--danger);">⚠ ${title}</h3>
+    <div style="background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:10px 12px; margin-bottom:14px; display:flex; justify-content:space-between; font-weight:800;">
+      <span>${t('grand_total_label')}:</span><span style="color:var(--danger);">${money(total)} UZS</span>
+    </div>
+    <div style="max-height:340px; overflow-y:auto;">
+      ${records.length ? records.map(e=>`
+        <div style="padding:10px 0; border-bottom:1px solid var(--border);">
+          <div style="display:flex; justify-content:space-between; gap:10px;">
+            <div style="font-weight:700; font-size:13px; flex:1;">${e.name}</div>
+            <div class="mono" style="font-weight:800; color:var(--danger); flex-shrink:0;">${money(e.amount)}</div>
+          </div>
+          <div style="font-size:11px; color:var(--muted); margin-top:2px;">${e.date}${e.defectQty?` · ${e.defectQty}${e.defectUnit||''}`:''}${e.defectLocation?` · ${e.defectLocation==='store'?t('filter_store'):t('filter_warehouse')}`:''}</div>
+        </div>
+      `).join('') : `<div style="text-align:center; color:var(--muted); padding:20px; font-size:13px;">${t('no_results')}</div>`}
+    </div>
+    <button class="btn-ghost" id="m_cancel" style="width:100%; margin-top:14px;">${t('close')}</button>
+  `);
+  document.getElementById('m_cancel').onclick = closeModal;
+}
 function modalDefectStock(data, productId){
   const p = data.products.find(x=>x.id===productId);
   if(!p) return;
@@ -3588,12 +3671,13 @@ function modalDefectStock(data, productId){
       else p.wStock = Math.max(0, Number(p.wStock||0)-qty);
     }
 
-    // Zararni rasxod sifatida yozamiz
+    // Zararni rasxod sifatida yozamiz (isDefect:true - til o'zgarsa ham keyinchalik to'g'ri filtrlash uchun mustahkam belgi)
     const lossAmount = qty*costUZS;
     data.expenses = data.expenses || [];
     data.expenses.push({
       id:uid(), name:`${t('defect_expense_label')}: ${p.name}${p.model?' ('+p.model+')':''}${reason?' - '+reason:''}`,
-      category:t('defect_category'), emoji:'⚠', amount:lossAmount, paymentType:'naqd', date:todayStr()
+      category:t('defect_category'), emoji:'⚠', amount:lossAmount, paymentType:'naqd', date:todayStr(),
+      isDefect:true, productName:p.name, productModel:p.model||'', defectQty:qty, defectUnit:p.unit, defectLocation:defLoc
     });
 
     const ok = await saveCompanyData(state.session.companyId, data);
@@ -3840,6 +3924,36 @@ async function modalAddProduct(data){
   };
 }
 /* ---- CSV IMPORT ---- */
+/* JsBarcode kutubxonasi - shtrix kodlarni to'g'ridan-to'g'ri brauzerda (tashqi API'siz) chizadi.
+   Bir marta yuklanadi, keyin internetsiz ham ishlayveradi (offline-safe). */
+let jsBarcodeLoadPromise = null;
+function loadJsBarcode(){
+  if(window.JsBarcode) return Promise.resolve(true);
+  if(jsBarcodeLoadPromise) return jsBarcodeLoadPromise;
+  jsBarcodeLoadPromise = new Promise((resolve)=>{
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js';
+    script.onload = ()=> resolve(!!window.JsBarcode);
+    script.onerror = ()=> resolve(false);
+    document.head.appendChild(script);
+    setTimeout(()=> resolve(!!window.JsBarcode), 6000);
+  });
+  return jsBarcodeLoadPromise;
+}
+/* Berilgan shtrix kodni <svg> ichiga chizib, uni HTML matni sifatida qaytaradi */
+function renderBarcodeSVG(code, opts){
+  opts = opts || {};
+  const svgNs = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNs, 'svg');
+  try{
+    window.JsBarcode(svg, String(code||''), {
+      format:'CODE128', width: opts.width||1.6, height: opts.height||44,
+      displayValue:false, margin:0, background:'#ffffff', lineColor:'#000000'
+    });
+  }catch(e){ console.error('JsBarcode render error', e); return ''; }
+  return svg.outerHTML;
+}
+
 /* SheetJS (xlsx) kutubxonasi - Excel fayllarni brauzerda o'qish/yozish uchun */
 let xlsxLoadPromise = null;
 function loadXLSX(){
@@ -4334,6 +4448,12 @@ function bindShellEvents(data){
     if(openExpense2) openExpense2.onclick = ()=>modalAddExpense(data);
     const btnCloseCash = document.getElementById('btnCloseCash');
     if(btnCloseCash) btnCloseCash.onclick = ()=>modalCloseCashRegister(data);
+    const dashDefectCard = document.getElementById('dashDefectCard');
+    if(dashDefectCard) dashDefectCard.onclick = ()=>{
+      const monthStart = new Date(); monthStart.setDate(1);
+      const monthStartStr = monthStart.toISOString().slice(0,10);
+      modalDefectList(data, t('defect_monthly'), e=>e.date>=monthStartStr && e.date<=todayStr());
+    };
 
     /* ---- Incoming (Kirim) page bindings ---- */
     const btnNewIncoming = document.getElementById('btnNewIncoming');
@@ -4444,6 +4564,17 @@ function bindShellEvents(data){
     };
     const btnOpenReceiptSettings = document.getElementById('btnOpenReceiptSettings');
     if(btnOpenReceiptSettings) btnOpenReceiptSettings.onclick = ()=>modalReceiptSettings(data);
+    const btnSaveBarcodeSettings = document.getElementById('btnSaveBarcodeSettings');
+    if(btnSaveBarcodeSettings) btnSaveBarcodeSettings.onclick = async ()=>{
+      const val = document.getElementById('bc_prefix').value.trim();
+      const prefix = /^[0-9]$/.test(val) ? val : '2';
+      data.settings = data.settings || {};
+      data.settings.barcodePrefix = prefix;
+      const ok = await saveCompanyData(state.session.companyId, data);
+      if(!ok) return;
+      barcodePrefixDigit = prefix;
+      toast(t('settings_saved'));
+    };
     const btnDoUpdate = document.getElementById('btnDoUpdate');
     if(btnDoUpdate) btnDoUpdate.onclick = reloadForUpdate;
     const btnCheckUpdate = document.getElementById('btnCheckUpdate');
@@ -4598,6 +4729,8 @@ function bindShellEvents(data){
     document.querySelectorAll('[data-defect]').forEach(b=>{
       b.onclick = ()=>modalDefectStock(data, b.dataset.defect);
     });
+    const whDefectCard = document.getElementById('whDefectCard');
+    if(whDefectCard) whDefectCard.onclick = ()=>modalDefectList(data, t('total_defect'));
     document.querySelectorAll('[data-print-barcode]').forEach(b=>{
       b.onclick = ()=>modalPrintBarcode(data, b.dataset.printBarcode);
     });
