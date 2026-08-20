@@ -708,7 +708,7 @@ function t(k){ return (STR[state.lang] && STR[state.lang][k]) || k; }
 
 /* ============ STATE ============ */
 const todayStr = ()=> new Date().toISOString().slice(0,10);
-const APP_VERSION = "2026-08-18-z"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
+const APP_VERSION = "2026-08-19-a"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
 let updateAvailable = false;
 let state = { lang:'uz', theme:'sapphire', session:null, page:'dashboard', partnerTab:'customers', currency:'uzs', dateFrom: todayStr(), dateTo: todayStr(), dashPeriod:'today' };
 
@@ -1238,6 +1238,33 @@ async function sendTelegramNotification(data, sale){
 }
 
 /* ============ AUTH ============ */
+/* ============ PAROL XAVFSIZLIGI (hash) ============
+   Parollar endi ochiq matn holida emas, balki tuz (salt) + SHA-256 xesh ko'rinishida saqlanadi.
+   Eski (hali xeshlanmagan) foydalanuvchilar keyingi muvaffaqiyatli kirishda avtomatik xeshlanadi. */
+function generateSalt(){
+  const arr = new Uint8Array(16);
+  crypto.getRandomValues(arr);
+  return Array.from(arr).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function hashPassword(password, salt){
+  const enc = new TextEncoder();
+  const buf = await crypto.subtle.digest('SHA-256', enc.encode(salt+':'+password));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function verifyPassword(user, enteredPassword){
+  if(user.passwordHash && user.salt){
+    const h = await hashPassword(enteredPassword, user.salt);
+    return h === user.passwordHash;
+  }
+  // Eski (xeshlanmagan) yozuv - moslik uchun ochiq taqqoslash
+  return user.password === enteredPassword;
+}
+/* HTML maxsus belgilarini xavfsiz shaklga o'zgartiradi - foydalanuvchi kiritgan matn (tovar nomi,
+   mijoz ismi va h.k.) sahifaga chiqarilganda zararli kod (XSS) ishga tushmasligi uchun */
+function esc(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 async function registerCompany(companyName, firstName, lastName, phone, username, password){
   try{
     username = username.trim().toLowerCase();
@@ -1246,7 +1273,9 @@ async function registerCompany(companyName, firstName, lastName, phone, username
     const existing = await sGet('user:'+username, true);
     if(existing) return toast(t('user_exists'));
     const companyId = uid();
-    const userObj = { username, password, fullName, firstName, lastName, phone, role:'admin', companyId, companyName };
+    const salt = generateSalt();
+    const passwordHash = await hashPassword(password, salt);
+    const userObj = { username, passwordHash, salt, fullName, firstName, lastName, phone, role:'admin', companyId, companyName };
     const ok1 = await sSet('user:'+username, userObj, true);
     if(!ok1){ toast('⚠️ '+t('save_failed')); return; }
     await sSet('phone:'+phone, username, true);
@@ -1269,7 +1298,17 @@ async function loginUser(identifier, password){
       if(mapped) username = mapped;
     }
     const u = await sGet('user:'+username, true);
-    if(!u || u.password !== password) return toast(t('wrong_login'));
+    if(!u) return toast(t('wrong_login'));
+    const valid = await verifyPassword(u, password);
+    if(!valid) return toast(t('wrong_login'));
+    // Eski (xeshlanmagan) yozuvni shu yerda avtomatik xeshli formatga o'tkazamiz
+    if(!u.passwordHash){
+      const salt = generateSalt();
+      u.passwordHash = await hashPassword(password, salt);
+      u.salt = salt;
+      delete u.password;
+      await sSet('user:'+username, u, true);
+    }
     await sSet('session', { username }, false);
     state.session = u;
     await render();
@@ -1853,7 +1892,7 @@ function buildProductSearchResultsHTML(data, query){
           ${p.image ? `<img src="${p.image}" style="width:100%; height:100%; object-fit:cover;">` : '📦'}
         </div>
         <div style="flex:1; min-width:0;">
-          <div style="font-weight:700; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${p.name}${p.model?` · ${p.model}`:''}</div>
+          <div style="font-weight:700; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(p.name)}${p.model?` · ${esc(p.model)}`:''}</div>
           <div style="font-size:10.5px; color:var(--muted);">${stockLabel}</div>
         </div>
       </div>`;
@@ -1871,7 +1910,7 @@ function buildSalesHistoryHTML(data, history){
           <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
             <div>
               <div style="font-weight:800; color:var(--accent-dim); font-size:13.5px;">${s.invoiceNo||'—'}</div>
-              <div style="font-weight:700; font-size:14px; margin-top:3px;">${s.customer || 'Oddiy xaridor'}</div>
+              <div style="font-weight:700; font-size:14px; margin-top:3px;">${esc(s.customer) || 'Oddiy xaridor'}</div>
               <div style="font-size:11.5px; color:var(--muted); margin-top:2px;">${s.date}</div>
             </div>
             <div style="text-align:right;">
@@ -1883,7 +1922,7 @@ function buildSalesHistoryHTML(data, history){
             ${(s.items||[]).map(i=>`
               <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:5px 0; ${(s.items.indexOf(i)>0)?'border-top:1px solid var(--border);':''}">
                 <div style="min-width:0;">
-                  <div style="font-weight:700; font-size:12.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${i.productName}${i.productModel?` <span style="color:var(--accent-dim); font-weight:600;">(${i.productModel})</span>`:''}</div>
+                  <div style="font-weight:700; font-size:12.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(i.productName)}${i.productModel?` <span style="color:var(--accent-dim); font-weight:600;">(${esc(i.productModel)})</span>`:''}</div>
                   <div style="font-size:11px; color:var(--muted); margin-top:1px;">${i.qty}${i.unit} × ${money(i.price)}</div>
                 </div>
                 <div class="mono" style="font-weight:700; font-size:12.5px; flex-shrink:0;">${money(i.total)}</div>
@@ -2070,11 +2109,11 @@ function buildWarehouseProductListHTML(data, products){
           </div>
           <div style="flex:1; min-width:0;">
             <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-              <span style="font-weight:800; font-size:18px;">${p.name}</span>
+              <span style="font-weight:800; font-size:18px;">${esc(p.name)}</span>
               <span class="badge badge-accent">${p.unit}</span>
               ${isLow ? `<span class="badge" style="background:rgba(226,59,84,0.14); color:var(--danger);">⚠ ${t('low_stock')}</span>` : ''}
             </div>
-            ${p.model ? `<div style="font-size:14.5px; font-weight:700; color:var(--accent-dim); margin-top:2px;">${p.model}</div>` : ''}
+            ${p.model ? `<div style="font-size:14.5px; font-weight:700; color:var(--accent-dim); margin-top:2px;">${esc(p.model)}</div>` : ''}
             ${p.barcode ? `<div style="font-size:11px; color:var(--muted); margin-top:2px;" class="mono">▤ ${p.barcode}</div>` : ''}
           </div>
           <div>${locBadge}</div>
@@ -4602,7 +4641,9 @@ async function modalAddEmployee(data){
     if(!fullName || !username || !password) return toast(t('fill_all'));
     const existing = await sGet('user:'+username, true);
     if(existing) return toast(t('user_exists'));
-    const okUser = await sSet('user:'+username, { username, password, fullName, role:'employee', companyId: state.session.companyId, companyName: state.session.companyName }, true);
+    const salt = generateSalt();
+    const passwordHash = await hashPassword(password, salt);
+    const okUser = await sSet('user:'+username, { username, passwordHash, salt, fullName, role:'employee', companyId: state.session.companyId, companyName: state.session.companyName }, true);
     if(!okUser){ toast('⚠️ '+t('save_failed')); return; }
     data.employees.push({ username, fullName, password });
     const ok = await saveCompanyData(state.session.companyId, data);
