@@ -373,6 +373,12 @@ uz:{app_name:"Master ERP", app_tag:"ERP TIZIMI", login:"Kirish", register:"Ro'yx
   barcode_lib_failed:"Shtrix kod kutubxonasi yuklanmadi - internetni tekshiring",
   barcode_settings:"Shtrix kod sozlamalari", barcode_settings_hint:"Avtomatik shtrix kod formati va yorliq o'lchami", barcode_prefix:"Avtomatik prefiks", barcode_prefix_hint:"Yangi tovar qo'shilganda shtrix kod shu raqam bilan boshlanadi",
   bc_show_name:"Tovar nomini ko'rsatish", bc_show_model:"Modelni ko'rsatish", bc_show_price:"Narxni ko'rsatish", bc_show_company:"Do'kon nomini ko'rsatish", bc_show_logo:"Logoni ko'rsatish",
+  backup_title:"Zaxira nusxa (Backup)", backup_hint:"Ma'lumotni fayl sifatida saqlab qo'ying - yo'qolib qolsa, qayta tiklash uchun",
+  backup_download:"Zaxira nusxa yuklab olish", backup_restore:"Zaxiradan tiklash", backup_downloaded:"Zaxira nusxa yuklab olindi",
+  backup_restore_confirm:"Fayldagi {p} ta tovar va {s} ta sotuv tiklanadi. Bu HOZIRGI ma'lumotni almashtiradi. Davom etilsinmi?",
+  backup_restored:"Ma'lumot muvaffaqiyatli tiklandi", backup_restore_failed:"Faylni o'qib bo'lmadi - to'g'ri backup fayl ekanini tekshiring",
+  backup_restore_auto:"Oxirgi avtomatik zaxiradan tiklash", no_auto_backup:"Hali avtomatik zaxira mavjud emas",
+  data_loss_warning:"⚠️ OGOHLANTIRISH: Bu amal ma'lumotni SEZILARLI darajada kamaytiradi!\n\nHozir: {pp} tovar, {ps} sotuv\nYangi holatda: {np} tovar, {ns} sotuv\n\nBu qasddan qilingan amalmi? Agar ishonchingiz komil bo'lmasa, BEKOR QILING va avval zaxira nusxa oling.",
   transfer_title:"Omborlar orasida o'tkazish", transfer_product:"Tovarni tanlang", transfer_from:"Qayerdan", transfer_to:"Qayerga",
   transfer_qty:"Miqdor", transfer_roll_pick:"Rulonni tanlang", transfer_btn:"O'tkazish", transfer_done:"Tovar o'tkazildi",
   jami:"Jami", variety:"xil", cost_value:"Tannarx", sale_value:"Sotish", filter_all:"Barchasi", filter_store:"Do'kon", filter_warehouse:"Ombor",
@@ -505,6 +511,12 @@ ru:{app_name:"Master ERP", app_tag:"ERP СИСТЕМА", login:"Войти", reg
   barcode_lib_failed:"Библиотека штрих-кодов не загрузилась - проверьте интернет",
   barcode_settings:"Настройки штрих-кода", barcode_settings_hint:"Формат автоматического штрих-кода и размер этикетки", barcode_prefix:"Автопрефикс", barcode_prefix_hint:"Новый штрих-код товара будет начинаться с этого числа",
   bc_show_name:"Показывать название", bc_show_model:"Показывать модель", bc_show_price:"Показывать цену", bc_show_company:"Показывать название магазина", bc_show_logo:"Показывать лого",
+  backup_title:"Резервная копия", backup_hint:"Сохраните данные в файл - на случай, если что-то пропадёт",
+  backup_download:"Скачать резервную копию", backup_restore:"Восстановить из копии", backup_downloaded:"Резервная копия скачана",
+  backup_restore_confirm:"Будет восстановлено {p} товаров и {s} продаж из файла. Это ЗАМЕНИТ текущие данные. Продолжить?",
+  backup_restored:"Данные успешно восстановлены", backup_restore_failed:"Не удалось прочитать файл - проверьте, что это правильный файл резервной копии",
+  backup_restore_auto:"Восстановить из последней автокопии", no_auto_backup:"Автокопии пока нет",
+  data_loss_warning:"⚠️ ВНИМАНИЕ: Это действие ЗНАЧИТЕЛЬНО уменьшит данные!\n\nСейчас: {pp} товаров, {ps} продаж\nПосле: {np} товаров, {ns} продаж\n\nЭто намеренное действие? Если не уверены, ОТМЕНИТЕ и сначала сделайте резервную копию.",
   transfer_title:"Перемещение между складами", transfer_product:"Выберите товар", transfer_from:"Откуда", transfer_to:"Куда",
   transfer_qty:"Количество", transfer_roll_pick:"Выберите рулон", transfer_btn:"Переместить", transfer_done:"Товар перемещён",
   jami:"Всего", variety:"видов", cost_value:"Себестоимость", sale_value:"Продажа", filter_all:"Все", filter_store:"Магазин", filter_warehouse:"Склад",
@@ -637,6 +649,12 @@ en:{app_name:"Master ERP", app_tag:"ERP SYSTEM", login:"Sign in", register:"Regi
   barcode_lib_failed:"Barcode library failed to load - check your internet",
   barcode_settings:"Barcode settings", barcode_settings_hint:"Auto-barcode format and label size", barcode_prefix:"Auto prefix", barcode_prefix_hint:"New product barcodes will start with this number",
   bc_show_name:"Show product name", bc_show_model:"Show model", bc_show_price:"Show price", bc_show_company:"Show store name", bc_show_logo:"Show logo",
+  backup_title:"Backup", backup_hint:"Save your data to a file - in case something gets lost",
+  backup_download:"Download backup", backup_restore:"Restore from backup", backup_downloaded:"Backup downloaded",
+  backup_restore_confirm:"{p} products and {s} sales will be restored from this file. This will REPLACE current data. Continue?",
+  backup_restored:"Data restored successfully", backup_restore_failed:"Couldn't read the file - check that it's a valid backup file",
+  backup_restore_auto:"Restore from last auto-backup", no_auto_backup:"No auto-backup available yet",
+  data_loss_warning:"⚠️ WARNING: This action will SIGNIFICANTLY reduce your data!\n\nCurrently: {pp} products, {ps} sales\nAfter: {np} products, {ns} sales\n\nIs this intentional? If unsure, CANCEL and make a backup first.",
   transfer_title:"Transfer between locations", transfer_product:"Select product", transfer_from:"From", transfer_to:"To",
   transfer_qty:"Quantity", transfer_roll_pick:"Select roll", transfer_btn:"Transfer", transfer_done:"Item transferred",
   jami:"Total", variety:"types", cost_value:"Cost value", sale_value:"Sale value", filter_all:"All", filter_store:"Store", filter_warehouse:"Warehouse",
@@ -690,7 +708,7 @@ function t(k){ return (STR[state.lang] && STR[state.lang][k]) || k; }
 
 /* ============ STATE ============ */
 const todayStr = ()=> new Date().toISOString().slice(0,10);
-const APP_VERSION = "2026-08-18-x"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
+const APP_VERSION = "2026-08-18-z"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
 let updateAvailable = false;
 let state = { lang:'uz', theme:'sapphire', session:null, page:'dashboard', partnerTab:'customers', currency:'uzs', dateFrom: todayStr(), dateTo: todayStr(), dashPeriod:'today' };
 
@@ -927,7 +945,13 @@ setInterval(async ()=>{
   await getCompanyDataCached(state.session.companyId, true);
   render();
 }, 30000);
-async function saveCompanyData(companyId, data){
+/* IKKI QATLAMLI HIMOYA (2026-08-18 falokatidan keyin qo'shildi):
+   1) Har bir saqlashdan OLDIN, joriy holat avtomatik zaxiraga yoziladi (Supabase'ning o'zida)
+   2) Agar yangi ma'lumot avvalgisiga nisbatan KATTA HAJMDA kamaygan bo'lsa (masalan tovarlar
+      yoki sotuvlar sonining katta qismi yo'qolgan bo'lsa) - saqlash BLOKLANADI va ochiq
+      ogohlantirish ko'rsatiladi, foydalanuvchi buni ANIQ tasdiqlamasa. */
+async function saveCompanyData(companyId, data, opts){
+  opts = opts || {};
   if(!data.expenses) data.expenses = [];
   if(!data.telegramConfig) data.telegramConfig = {token:'',chatId:'',enabled:false};
   if(!data.settings) data.settings = {autoReceipt:true};
@@ -939,6 +963,26 @@ async function saveCompanyData(companyId, data){
     // 5MB chegaradan xavfsiz masofa - juda katta bo'lsa saqlamaymiz, aks holda butun ma'lumot buziladi
     toast('⚠️ ' + t('payload_too_large'));
     return false;
+  }
+
+  // --- XAVFSIZLIK TEKSHIRUVI: katta hajmda ma'lumot yo'qolishini oldini olamiz ---
+  if(!opts.skipSafetyCheck){
+    let prevData = null;
+    try{ prevData = await sGet('company_data:'+companyId, true); }catch(e){ /* oldingi holatni bila olmadik - tekshiruvni o'tkazib yuboramiz */ }
+    if(prevData){
+      const prevProducts = (prevData.products||[]).length;
+      const prevSales = (prevData.sales||[]).length;
+      const newProducts = (data.products||[]).length;
+      const newSales = (data.sales||[]).length;
+      const bigLoss = (prevProducts>=3 && newProducts===0) || (prevSales>=3 && newSales===0) ||
+                      (prevProducts>=10 && newProducts < prevProducts*0.2) || (prevSales>=10 && newSales < prevSales*0.2);
+      if(bigLoss){
+        const msg = t('data_loss_warning').replace('{pp}',prevProducts).replace('{np}',newProducts).replace('{ps}',prevSales).replace('{ns}',newSales);
+        if(!confirm(msg)) return false;
+      }
+    }
+    // Saqlashdan OLDIN avtomatik zaxira (oxirgi ishonchli holatni yo'qotmaslik uchun)
+    if(prevData){ try{ await sSetOnce('company_data_backup:'+companyId, prevData, true); }catch(e){} }
   }
 
   let ok = await sSet('company_data:'+companyId, data, true);
@@ -2378,7 +2422,7 @@ async function modalResetChoice(data){
     if(!confirm(t('reset_confirm'))) return;
     if(!confirm(t('reset_confirm2'))) return;
     data.sales=[]; data.products=[]; data.partners=[]; data.partnerStores=[]; data.expenses=[]; data.purchases=[];
-    const ok = await saveCompanyData(state.session.companyId, data);
+    const ok = await saveCompanyData(state.session.companyId, data, {skipSafetyCheck:true});
     if(!ok) return;
     closeModal();
     toast(t('reset_done')); render();
@@ -3125,6 +3169,20 @@ function renderSettings(data){
           </div>
           <button class="btn-3d btn-sm" id="btnOpenBarcodeSettings">${t('open')}</button>
         </div>
+      </div>
+
+      <div class="card" style="grid-column:1/-1; border-color:rgba(24,168,118,0.4); background:linear-gradient(180deg,rgba(24,168,118,0.06),var(--panel));">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
+          <div style="width:44px;height:44px;border-radius:12px;background:rgba(24,168,118,0.18); display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;">💾</div>
+          <div style="flex:1;">
+            <div style="font-weight:800; font-size:15px; color:var(--success);">${t('backup_title')}</div>
+            <div style="font-size:11.5px; color:var(--muted);">${t('backup_hint')}</div>
+          </div>
+        </div>
+        <button class="btn-3d btn-sm" id="btnDownloadBackup" style="width:100%; margin-bottom:8px; background:linear-gradient(180deg,#5CFFB8,#18A876 60%,#0B7A50);">⬇ ${t('backup_download')}</button>
+        <button class="btn-ghost btn-sm" id="btnRestoreBackup" style="width:100%;">⬆ ${t('backup_restore')}</button>
+        <button class="btn-ghost btn-sm" id="btnRestoreAutoBackup" style="width:100%; margin-top:8px; color:var(--accent-dim); border-color:rgba(62,155,255,0.35);">🔄 ${t('backup_restore_auto')}</button>
+        <input type="file" id="backupFileInput" accept=".json" style="display:none;">
       </div>
 
       <div class="card" style="grid-column:1/-1; border-color:rgba(226,59,84,0.4);">
@@ -4570,6 +4628,62 @@ function bindWarehouseCardHandlers(data){
     b.onclick = async ()=>{ data.products = data.products.filter(p=>p.id!==b.dataset.delProduct); await saveCompanyData(state.session.companyId,data); toast(t('deleted')); render(); };
   });
 }
+/* Ma'lumotlarni fayl sifatida yuklab olish (backup) va qayta tiklash (restore).
+   Bu funksiya endi tasodifiy ma'lumot yo'qolishining oldini olish uchun asosiy himoya vositasi. */
+function downloadBackup(data){
+  const backup = {
+    _backupType: 'master-erp-backup', _version: APP_VERSION, _companyName: state.session.companyName,
+    _exportedAt: new Date().toISOString(), data: data
+  };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type:'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const dateStr = todayStr();
+  a.href = url; a.download = `master-erp-backup-${dateStr}.json`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('✅ ' + t('backup_downloaded'));
+}
+function restoreBackupFlow(data){
+  const fileInput = document.getElementById('backupFileInput');
+  fileInput.value = '';
+  fileInput.onchange = async ()=>{
+    const file = fileInput.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = async ()=>{
+      try{
+        const parsed = JSON.parse(reader.result);
+        const restoredData = parsed.data || parsed; // eski formatlarga ham moslashuvchan
+        if(!restoredData || typeof restoredData !== 'object') throw new Error('invalid');
+        const productCount = (restoredData.products||[]).length;
+        const salesCount = (restoredData.sales||[]).length;
+        if(!confirm(t('backup_restore_confirm').replace('{p}', productCount).replace('{s}', salesCount))) return;
+        const ok = await saveCompanyData(state.session.companyId, restoredData, {skipSafetyCheck:true});
+        if(!ok) return;
+        invalidateCompanyDataCache();
+        toast('✅ ' + t('backup_restored'));
+        render();
+      }catch(e){ console.error('restore error', e); toast('⚠️ ' + t('backup_restore_failed')); }
+    };
+    reader.readAsText(file);
+  };
+  fileInput.click();
+}
+async function restoreAutoBackup(){
+  try{
+    const backup = await sGet('company_data_backup:'+state.session.companyId, true);
+    if(!backup){ toast('⚠️ ' + t('no_auto_backup')); return; }
+    const productCount = (backup.products||[]).length;
+    const salesCount = (backup.sales||[]).length;
+    if(!confirm(t('backup_restore_confirm').replace('{p}', productCount).replace('{s}', salesCount))) return;
+    const ok = await saveCompanyData(state.session.companyId, backup, {skipSafetyCheck:true});
+    if(!ok) return;
+    invalidateCompanyDataCache();
+    toast('✅ ' + t('backup_restored'));
+    render();
+  }catch(e){ console.error('restoreAutoBackup error', e); toast('⚠️ ' + t('backup_restore_failed')); }
+}
 function bindShellEvents(data){
   document.querySelectorAll('[data-page]').forEach(el=>{
     el.onclick = ()=>{ state.page = el.dataset.page; render(); };
@@ -4825,6 +4939,12 @@ function bindShellEvents(data){
     if(btnOpenReceiptSettings) btnOpenReceiptSettings.onclick = ()=>modalReceiptSettings(data);
     const btnOpenBarcodeSettings = document.getElementById('btnOpenBarcodeSettings');
     if(btnOpenBarcodeSettings) btnOpenBarcodeSettings.onclick = ()=>modalBarcodeSettings(data);
+    const btnDownloadBackup = document.getElementById('btnDownloadBackup');
+    if(btnDownloadBackup) btnDownloadBackup.onclick = ()=>downloadBackup(data);
+    const btnRestoreBackup = document.getElementById('btnRestoreBackup');
+    if(btnRestoreBackup) btnRestoreBackup.onclick = ()=>restoreBackupFlow(data);
+    const btnRestoreAutoBackup = document.getElementById('btnRestoreAutoBackup');
+    if(btnRestoreAutoBackup) btnRestoreAutoBackup.onclick = restoreAutoBackup;
     const btnDoUpdate = document.getElementById('btnDoUpdate');
     if(btnDoUpdate) btnDoUpdate.onclick = reloadForUpdate;
     const btnCheckUpdate = document.getElementById('btnCheckUpdate');
