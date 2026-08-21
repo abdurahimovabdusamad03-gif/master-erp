@@ -708,7 +708,7 @@ function t(k){ return (STR[state.lang] && STR[state.lang][k]) || k; }
 
 /* ============ STATE ============ */
 const todayStr = ()=> new Date().toISOString().slice(0,10);
-const APP_VERSION = "2026-08-19-a"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
+const APP_VERSION = "2026-08-19-b"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
 let updateAvailable = false;
 let state = { lang:'uz', theme:'sapphire', session:null, page:'dashboard', partnerTab:'customers', currency:'uzs', dateFrom: todayStr(), dateTo: todayStr(), dashPeriod:'today' };
 
@@ -965,11 +965,14 @@ async function saveCompanyData(companyId, data, opts){
     return false;
   }
 
-  // --- XAVFSIZLIK TEKSHIRUVI: katta hajmda ma'lumot yo'qolishini oldini olamiz ---
-  if(!opts.skipSafetyCheck){
-    let prevData = null;
-    try{ prevData = await sGet('company_data:'+companyId, true); }catch(e){ /* oldingi holatni bila olmadik - tekshiruvni o'tkazib yuboramiz */ }
-    if(prevData){
+  // --- HAR DOIM: saqlashdan OLDIN joriy holatni avtomatik zaxiraga yozamiz ---
+  // (bu qism "skipSafetyCheck" bilan bog'liq emas - hatto "Barchasini 0 qilish" bosilsa ham
+  //  zaxira baribir olinadi, shunda undan keyin ham "Zaxiradan tiklash" ishlaydi)
+  let prevData = null;
+  try{ prevData = await sGet('company_data:'+companyId, true); }catch(e){ /* oldingi holatni bila olmadik */ }
+  if(prevData){
+    // --- XAVFSIZLIK TEKSHIRUVI: katta hajmda ma'lumot yo'qolishini oldini olamiz (faqat kutilmagan holatlar uchun) ---
+    if(!opts.skipSafetyCheck){
       const prevProducts = (prevData.products||[]).length;
       const prevSales = (prevData.sales||[]).length;
       const newProducts = (data.products||[]).length;
@@ -981,8 +984,7 @@ async function saveCompanyData(companyId, data, opts){
         if(!confirm(msg)) return false;
       }
     }
-    // Saqlashdan OLDIN avtomatik zaxira (oxirgi ishonchli holatni yo'qotmaslik uchun)
-    if(prevData){ try{ await sSetOnce('company_data_backup:'+companyId, prevData, true); }catch(e){} }
+    try{ await sSetOnce('company_data_backup:'+companyId, prevData, true); }catch(e){}
   }
 
   let ok = await sSet('company_data:'+companyId, data, true);
@@ -2473,6 +2475,11 @@ async function modalResetChoice(data){
     const companyId = state.session.companyId;
     const username = state.session.username;
     const phone = state.session.phone;
+    // Profil o'chirilishidan oldin ham avtomatik zaxira olamiz (extra himoya)
+    try{
+      const currentData = await sGet('company_data:'+companyId, true);
+      if(currentData) await sSetOnce('company_data_backup:'+companyId, currentData, true);
+    }catch(e){}
     // Kompaniyaga tegishli barcha xodimlar loginlarini ham o'chiramiz
     for(const emp of (data.employees||[])){
       await sDel('user:'+emp.username, true);
