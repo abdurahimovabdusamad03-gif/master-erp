@@ -379,6 +379,11 @@ uz:{app_name:"Master ERP", app_tag:"ERP TIZIMI", login:"Kirish", register:"Ro'yx
   backup_restored:"Ma'lumot muvaffaqiyatli tiklandi", backup_restore_failed:"Faylni o'qib bo'lmadi - to'g'ri backup fayl ekanini tekshiring",
   backup_restore_auto:"Oxirgi avtomatik zaxiradan tiklash", no_auto_backup:"Hali avtomatik zaxira mavjud emas",
   data_loss_warning:"⚠️ OGOHLANTIRISH: Bu amal ma'lumotni SEZILARLI darajada kamaytiradi!\n\nHozir: {pp} tovar, {ps} sotuv\nYangi holatda: {np} tovar, {ns} sotuv\n\nBu qasddan qilingan amalmi? Agar ishonchingiz komil bo'lmasa, BEKOR QILING va avval zaxira nusxa oling.",
+  trial_expired_title:"Sinov muddati tugadi", trial_expired_hint:"Ilovadan foydalanishni davom ettirish uchun Premium versiyaga o'ting.", contact_seller:"Bog'lanish uchun",
+  trial_banner_title:"Sinov rejimida", trial_days_left:"{n} kun qoldi", trial_product_limit:"{n}/50 tovar", upgrade_btn:"Premium'ga o'tish",
+  upgrade_contact_msg:"Premium versiyaga o'tish uchun quyidagi kontakt orqali bog'laning:",
+  trial_limit_reached:"Sinov rejimida maksimal {n} ta tovar qo'shish mumkin. Ko'proq tovar qo'shish uchun Premium versiyaga o'ting.",
+  rows_skipped_limit:"qator chegara sababli qo'shilmadi",
   transfer_title:"Omborlar orasida o'tkazish", transfer_product:"Tovarni tanlang", transfer_from:"Qayerdan", transfer_to:"Qayerga",
   transfer_qty:"Miqdor", transfer_roll_pick:"Rulonni tanlang", transfer_btn:"O'tkazish", transfer_done:"Tovar o'tkazildi",
   jami:"Jami", variety:"xil", cost_value:"Tannarx", sale_value:"Sotish", filter_all:"Barchasi", filter_store:"Do'kon", filter_warehouse:"Ombor",
@@ -517,6 +522,11 @@ ru:{app_name:"Master ERP", app_tag:"ERP СИСТЕМА", login:"Войти", reg
   backup_restored:"Данные успешно восстановлены", backup_restore_failed:"Не удалось прочитать файл - проверьте, что это правильный файл резервной копии",
   backup_restore_auto:"Восстановить из последней автокопии", no_auto_backup:"Автокопии пока нет",
   data_loss_warning:"⚠️ ВНИМАНИЕ: Это действие ЗНАЧИТЕЛЬНО уменьшит данные!\n\nСейчас: {pp} товаров, {ps} продаж\nПосле: {np} товаров, {ns} продаж\n\nЭто намеренное действие? Если не уверены, ОТМЕНИТЕ и сначала сделайте резервную копию.",
+  trial_expired_title:"Пробный период истёк", trial_expired_hint:"Перейдите на Premium версию, чтобы продолжить.", contact_seller:"Для связи",
+  trial_banner_title:"Пробный режим", trial_days_left:"осталось {n} дн.", trial_product_limit:"{n}/50 товаров", upgrade_btn:"Перейти на Premium",
+  upgrade_contact_msg:"Для перехода на Premium свяжитесь по контакту:",
+  trial_limit_reached:"В пробном режиме можно добавить максимум {n} товаров. Перейдите на Premium для большего количества.",
+  rows_skipped_limit:"строк не добавлено из-за лимита",
   transfer_title:"Перемещение между складами", transfer_product:"Выберите товар", transfer_from:"Откуда", transfer_to:"Куда",
   transfer_qty:"Количество", transfer_roll_pick:"Выберите рулон", transfer_btn:"Переместить", transfer_done:"Товар перемещён",
   jami:"Всего", variety:"видов", cost_value:"Себестоимость", sale_value:"Продажа", filter_all:"Все", filter_store:"Магазин", filter_warehouse:"Склад",
@@ -655,6 +665,11 @@ en:{app_name:"Master ERP", app_tag:"ERP SYSTEM", login:"Sign in", register:"Regi
   backup_restored:"Data restored successfully", backup_restore_failed:"Couldn't read the file - check that it's a valid backup file",
   backup_restore_auto:"Restore from last auto-backup", no_auto_backup:"No auto-backup available yet",
   data_loss_warning:"⚠️ WARNING: This action will SIGNIFICANTLY reduce your data!\n\nCurrently: {pp} products, {ps} sales\nAfter: {np} products, {ns} sales\n\nIs this intentional? If unsure, CANCEL and make a backup first.",
+  trial_expired_title:"Trial period ended", trial_expired_hint:"Upgrade to Premium to keep using the app.", contact_seller:"Contact",
+  trial_banner_title:"Trial mode", trial_days_left:"{n} days left", trial_product_limit:"{n}/50 products", upgrade_btn:"Upgrade to Premium",
+  upgrade_contact_msg:"To upgrade to Premium, contact:",
+  trial_limit_reached:"Trial mode allows up to {n} products. Upgrade to Premium for more.",
+  rows_skipped_limit:"rows skipped due to limit",
   transfer_title:"Transfer between locations", transfer_product:"Select product", transfer_from:"From", transfer_to:"To",
   transfer_qty:"Quantity", transfer_roll_pick:"Select roll", transfer_btn:"Transfer", transfer_done:"Item transferred",
   jami:"Total", variety:"types", cost_value:"Cost value", sale_value:"Sale value", filter_all:"All", filter_store:"Store", filter_warehouse:"Warehouse",
@@ -708,7 +723,8 @@ function t(k){ return (STR[state.lang] && STR[state.lang][k]) || k; }
 
 /* ============ STATE ============ */
 const todayStr = ()=> new Date().toISOString().slice(0,10);
-const APP_VERSION = "2026-08-19-b"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
+const APP_VERSION = "2026-08-19-d"; // Har safar yangi kod yuborilganda bu qiymat oshiriladi (versiya tekshiruvi uchun)
+const SELLER_CONTACT = "Telegram: @your_username · Tel: +998 90 123 45 67"; // O'ZINGIZNING kontaktingizga o'zgartiring!
 let updateAvailable = false;
 let state = { lang:'uz', theme:'sapphire', session:null, page:'dashboard', partnerTab:'customers', currency:'uzs', dateFrom: todayStr(), dateTo: todayStr(), dashPeriod:'today' };
 
@@ -1267,6 +1283,61 @@ function esc(s){
   return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+/* ============ OBUNA (SINOV/PREMIUM) TIZIMI ============ */
+function getSubscriptionInfo(data){
+  const rawSub = data.settings && data.settings.subscription;
+  if(!rawSub){
+    // MUHIM: bu funksiya qo'shilishidan OLDIN ro'yxatdan o'tgan eski kompaniyalar - ular hech qachon
+    // bloklanmasligi va cheklanmasligi kerak. Faqat YANGI ro'yxatdan o'tganlar sinov rejimiga tushadi.
+    return { sub:null, expired:false, daysLeft:Infinity, isTrial:false, productLimit:Infinity };
+  }
+  const sub = rawSub;
+  // "Butunlay sotib olingan" - muddatsiz, hech qachon tekshirilmaydi/bloklanmaydi
+  if(sub.status === 'active_paid_forever'){
+    return { sub, expired:false, daysLeft:Infinity, isTrial:false, productLimit:Infinity };
+  }
+  const today = todayStr();
+  let expired = false, daysLeft = 0, isTrial = true;
+  if(sub.paidUntil && sub.paidUntil >= today){
+    expired = false;
+    const d1 = new Date(sub.paidUntil), d2 = new Date(today);
+    daysLeft = Math.max(0, Math.round((d1-d2)/86400000));
+    isTrial = false;
+  } else if(sub.paidUntil && sub.paidUntil < today){
+    expired = true; isTrial = false;
+  } else {
+    // Sinov davri
+    if(sub.trialEnd >= today){
+      const d1 = new Date(sub.trialEnd), d2 = new Date(today);
+      daysLeft = Math.max(0, Math.round((d1-d2)/86400000));
+      expired = false;
+    } else {
+      expired = true;
+    }
+  }
+  const productLimit = isTrial ? 50 : Infinity;
+  return { sub, expired, daysLeft, isTrial, productLimit };
+}
+function renderSubscriptionExpired(sub){
+  return `
+  <div class="auth-wrap">
+    <div class="card auth-card" style="text-align:center;">
+      <div style="font-size:44px; margin-bottom:10px;">⏳</div>
+      <h1 style="font-size:22px; margin-bottom:8px;">${t('trial_expired_title')}</h1>
+      <div style="color:var(--muted); font-size:13.5px; margin-bottom:20px;">${t('trial_expired_hint')}</div>
+      <div style="background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:14px; margin-bottom:20px; text-align:left; font-size:13px;">
+        <div style="font-weight:700; margin-bottom:6px;">${t('contact_seller')}:</div>
+        <div>${SELLER_CONTACT}</div>
+      </div>
+      <button class="btn-ghost" id="btnLogoutExpired" style="width:100%;">↩ ${t('logout')}</button>
+    </div>
+  </div>`;
+}
+function bindSubscriptionExpiredEvents(){
+  const b = document.getElementById('btnLogoutExpired');
+  if(b) b.onclick = logout;
+}
+
 async function registerCompany(companyName, firstName, lastName, phone, username, password){
   try{
     username = username.trim().toLowerCase();
@@ -1281,7 +1352,8 @@ async function registerCompany(companyName, firstName, lastName, phone, username
     const ok1 = await sSet('user:'+username, userObj, true);
     if(!ok1){ toast('⚠️ '+t('save_failed')); return; }
     await sSet('phone:'+phone, username, true);
-    const ok2 = await saveCompanyData(companyId, { sales:[], products:[], partners:[], partnerStores:[], employees:[], expenses:[], purchases:[], telegramConfig:{token:'',chatId:'',enabled:false}, settings:{autoReceipt:true} });
+    const trialEnd = new Date(); trialEnd.setDate(trialEnd.getDate()+7);
+    const ok2 = await saveCompanyData(companyId, { sales:[], products:[], partners:[], partnerStores:[], employees:[], expenses:[], purchases:[], telegramConfig:{token:'',chatId:'',enabled:false}, settings:{autoReceipt:true, subscription:{status:'trial', trialEnd: trialEnd.toISOString().slice(0,10), paidUntil:null}} }, {skipSafetyCheck:true});
     if(!ok2){ await sDel('user:'+username, true); await sDel('phone:'+phone, true); toast('⚠️ '+t('save_failed')); return; }
     await sSet('session', { username }, false);
     state.session = userObj;
@@ -1361,6 +1433,12 @@ async function render(){
     FX_RATE = Number(data.settings && data.settings.fxRate) || 12700;
     barcodePrefixDigit = /^[0-9]$/.test((data.settings||{}).barcodePrefix) ? data.settings.barcodePrefix : '2';
     updateAppIdentity(data);
+    const sub = getSubscriptionInfo(data);
+    if(sub.expired){
+      app.innerHTML = renderSubscriptionExpired(sub);
+      bindSubscriptionExpiredEvents();
+      return;
+    }
     app.innerHTML = await renderShell(data);
     bindShellEvents(data);
     if(state.page==='sales'){
@@ -1658,10 +1736,23 @@ function renderDashboard(data){
     debtMap[key] = (debtMap[key]||0) + Number(s.nasiyaAmount||0);
   });
   const debtors = Object.entries(debtMap).filter(([k,v])=>v>0);
+  const subInfo = getSubscriptionInfo(data);
 
   return `
     <div class="page-title">${t('dashboard')}</div>
     <div class="page-sub">${t('welcome')}, ${state.session.fullName}</div>
+
+    ${subInfo.isTrial ? `
+      <div class="card" style="margin-bottom:14px; background:linear-gradient(135deg,#F2A900,#F2C955); border:none; padding:12px 14px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+          <div>
+            <div style="font-weight:800; color:#3A2A00; font-size:13.5px;">🎁 ${t('trial_banner_title')}</div>
+            <div style="font-size:11.5px; color:#5A4200;">${t('trial_days_left').replace('{n}', subInfo.daysLeft)} · ${t('trial_product_limit').replace('{n}', data.products.length)}</div>
+          </div>
+          <button class="btn-3d btn-sm" id="btnUpgradeInfo" style="background:#1E2938;">⭐ ${t('upgrade_btn')}</button>
+        </div>
+      </div>
+    ` : ''}
 
     <div class="card" style="margin-bottom:12px; background:linear-gradient(135deg,#1B5FC4,#3E9BFF); border:none; padding:7px 10px; width:50%; min-width:220px;">
       <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
@@ -4213,6 +4304,13 @@ async function modalAddProduct(data){
     if(!barcode) barcode = genBarcode();
     if(!name || !price) return toast(t('fill_all'));
 
+    // Sinov davri chegarasi: 50 ta tovar
+    const subInfo = getSubscriptionInfo(data);
+    if(subInfo.isTrial && data.products.length >= subInfo.productLimit){
+      alert(t('trial_limit_reached').replace('{n}', subInfo.productLimit) + '\n\n' + SELLER_CONTACT);
+      return;
+    }
+
     // Dublikat tekshiruvi - bir xil nomli (va modelga ega) tovar allaqachon bormi
     const dup = data.products.find(p=>p.name.trim().toLowerCase()===name.toLowerCase() && (p.model||'').trim().toLowerCase()===model.toLowerCase());
     if(dup){
@@ -4362,11 +4460,13 @@ function openImportModal(data){
         const sheet = wb.Sheets[wb.SheetNames[0]];
         const rows = window.XLSX.utils.sheet_to_json(sheet, { header:1, raw:true, defval:'' });
         console.log('Import: fayldan o\'qilgan qatorlar', rows);
-        let count = 0, skipped = 0, merged = 0;
+        let count = 0, skipped = 0, merged = 0, limitBlocked = 0;
+        const subInfoImport = getSubscriptionInfo(data);
         rows.forEach((row, idx)=>{
           if(idx===0) return; // sarlavha qatorini o'tkazib yuboramiz
           const isRowEmpty = !row || row.every(c=>String(c).trim()==='');
           if(isRowEmpty) return; // butunlay bo'sh qatorlarni jim o'tkazib yuboramiz (xato emas)
+          if(subInfoImport.isTrial && data.products.length >= subInfoImport.productLimit){ limitBlocked++; return; }
           const name = String(row[0]||'').trim();
           if(!name){ skipped++; return; }
           const model = String(row[1]||'').trim();
@@ -4431,6 +4531,7 @@ function openImportModal(data){
         if(!saved) return;
         closeModal();
         toast(t('import_success').replace('{n}', count) + (merged ? `, ${merged} ${t('import_merged')}` : '') + (skipped ? ` (${skipped} ${t('import_skipped')})` : ''));
+        if(limitBlocked>0) alert(t('trial_limit_reached').replace('{n}', subInfoImport.productLimit) + ` (${limitBlocked} ${t('rows_skipped_limit')})` + '\n\n' + SELLER_CONTACT);
         render();
       }catch(e){ console.error('import error', e); statusEl.textContent=''; toast('⚠️ ' + t('import_failed') + ': ' + (e.message||e)); }
     };
@@ -4875,6 +4976,10 @@ function bindShellEvents(data){
     };
     const netBannerDetail = document.getElementById('netBannerDetail');
     if(netBannerDetail) netBannerDetail.onclick = ()=>modalProfitBreakdown(data);
+    const btnUpgradeInfo = document.getElementById('btnUpgradeInfo');
+    if(btnUpgradeInfo) btnUpgradeInfo.onclick = ()=>{
+      alert(t('upgrade_contact_msg') + '\n\n' + SELLER_CONTACT);
+    };
 
     /* ---- Incoming (Kirim) page bindings ---- */
     const btnNewIncoming = document.getElementById('btnNewIncoming');
